@@ -3,7 +3,6 @@ package meshbot
 import (
 	"context"
 	"errors"
-	"time"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -35,6 +34,7 @@ type contextKey string
 
 const (
 	luaMessageTypeName = "message"
+	luaUserTypeName    = "user"
 	CATCH_ALL_EVENTS   = iota
 	CATCH_ALL_TEXT
 )
@@ -163,6 +163,8 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 	// Initialize a bare-bones Lua VM
 	L := lua.NewState(lua.Options{SkipOpenLibs: true})
 	lua.OpenBase(L)
+	lua.OpenString(L)
+	lua.OpenTable(L)
 
 	// Make some properties of the bot available to Lua
 	bot := L.NewTable()
@@ -197,45 +199,14 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 	bot.RawSetString("memory", memory)
 
 	// Register the Message usertype
-	mt := L.NewTypeMetatable(luaMessageTypeName)
-	L.SetGlobal(luaMessageTypeName, mt)
-	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), messageMethods))
+	mmt := L.NewTypeMetatable(luaMessageTypeName)
+	L.SetGlobal(luaMessageTypeName, mmt)
+	L.SetField(mmt, "__index", L.SetFuncs(L.NewTable(), messageMethods))
+
+	// Register the User usertype
+	umt := L.NewTypeMetatable(luaUserTypeName)
+	L.SetGlobal(luaUserTypeName, umt)
+	L.SetField(umt, "__index", L.SetFuncs(L.NewTable(), userMethods))
 
 	return L
-}
-
-var messageMethods = map[string]lua.LGFunction{
-	"reply":         messageReply,
-	"replyBlocking": messageReplyBlocking,
-	"text":          messageText,
-}
-
-// Checks whether the first lua argument is a *LUserData with *ChatMessage and returns this *ChatMessage
-func checkMessage(L *lua.LState) *ChatMessage {
-	ud := L.CheckUserData(1)
-	if v, ok := ud.Value.(*ChatMessage); ok {
-		return v
-	}
-	L.ArgError(1, "message expected")
-	return nil
-}
-
-func messageReply(L *lua.LState) int {
-	message := *checkMessage(L)
-	message.Reply(L.CheckString(2))
-	return 0
-}
-
-func messageReplyBlocking(L *lua.LState) int {
-	message := *checkMessage(L)
-	timeout := time.Second * time.Duration(L.OptInt(3, int(DEFAULT_BLOCKING_MESSAGE_TIMEOUT)))
-	delivered := <-message.ReplyBlocking(L.CheckString(2), timeout)
-	L.Push(lua.LBool(delivered))
-	return 1
-}
-
-func messageText(L *lua.LState) int {
-	message := *checkMessage(L)
-	L.Push(lua.LString(message.GetText()))
-	return 1
 }

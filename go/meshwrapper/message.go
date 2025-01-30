@@ -127,7 +127,7 @@ func (m Message) GetReceiverNode() meshbot.ChatUser {
 	return m.ToNode
 }
 
-func (m Message) FindNode(id string) meshbot.ChatUser {
+func (m Message) FindNode(id string) *meshbot.ChatUser {
 	panic("TODO: implement")
 }
 

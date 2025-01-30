@@ -13,7 +13,11 @@ import (
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 	bot := meshbot.NewChatbot()
-	bot.ReloadPlugins()
+	err := bot.ReloadPlugins()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	for {
 		fmt.Print("> ")
@@ -62,7 +66,7 @@ func (m chatMessage) GetReceiverNode() meshbot.ChatUser {
 	return m.ToNode
 }
 
-func (m chatMessage) FindNode(id string) meshbot.ChatUser {
+func (m chatMessage) FindNode(id string) *meshbot.ChatUser {
 	return nil
 }
 
