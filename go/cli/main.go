@@ -28,9 +28,8 @@ func main() {
 		bot.HandleMessage(chatMessage{
 			MessageType: meshbot.TEXT_MESSAGE,
 			Text:        input,
-			// ToNode: &node{
-			// 	NodeID: 1,
-			// },
+			FromNode:    chatUser{NodeID: 34875},
+			ToNode:      chatUser{NodeID: 23857},
 		})
 	}
 }
@@ -94,11 +93,11 @@ func (m chatUser) GetId() int {
 }
 
 func (m chatUser) GetIDExpression() string {
-	return fmt.Sprintf("!%8x", m.NodeID)
+	return fmt.Sprintf("!%08x", m.NodeID)
 }
 
 func (m chatUser) GetShortName() string {
-	return m.GetIDExpression()[4:]
+	return m.GetIDExpression()[5:]
 }
 
 func (m chatUser) GetLongName() string {
@@ -122,9 +121,9 @@ func (m chatUser) GetHopsAway() int {
 }
 
 func (m chatUser) GetRSSI() float32 {
-	return 0
+	return -50.0
 }
 
 func (m chatUser) GetSNR() float32 {
-	return 0
+	return 5.2
 }

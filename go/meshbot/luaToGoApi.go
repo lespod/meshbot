@@ -16,7 +16,6 @@ var messageMethods = map[string]lua.LGFunction{
 	"getSender":     messageGetSender,
 	"getReceiver":   messageGetReceiver,
 	"findNode":      messageFindNode,
-	"__tostring":    messageToString,
 	"reply":         messageReply,
 	"replyBlocking": messageReplyBlocking,
 }
@@ -26,7 +25,6 @@ var userMethods = map[string]lua.LGFunction{
 	"getIdExpression": userGetIDExpression,
 	"getShortName":    userGetShortName,
 	"getLongName":     userGetLongName,
-	"__tostring":      userToString,
 	"verboseString":   userVerboseString,
 	"getPosition":     userGetPosition,
 	"getHopsAway":     userGetHopsAway,
@@ -72,7 +70,7 @@ func messageGetSender(L *lua.LState) int {
 	message := *checkMessage(L)
 	node := message.GetSenderNode()
 	userUserData := L.NewUserData()
-	userUserData.Value = node
+	userUserData.Value = &node
 	L.SetMetatable(userUserData, L.GetTypeMetatable(luaUserTypeName))
 	L.Push(userUserData)
 	return 1
@@ -82,7 +80,7 @@ func messageGetReceiver(L *lua.LState) int {
 	message := *checkMessage(L)
 	node := message.GetReceiverNode()
 	userUserData := L.NewUserData()
-	userUserData.Value = node
+	userUserData.Value = &node
 	L.SetMetatable(userUserData, L.GetTypeMetatable(luaUserTypeName))
 	L.Push(userUserData)
 	return 1

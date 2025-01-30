@@ -96,7 +96,7 @@ func (n *Node) GetId() int {
 }
 
 func (n *Node) GetIDExpression() string {
-	return fmt.Sprintf("!%8x", n.Id)
+	return fmt.Sprintf("!%08x", n.Id)
 }
 
 func (n *Node) GetShortName() string {

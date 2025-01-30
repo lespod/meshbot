@@ -202,11 +202,13 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 	mmt := L.NewTypeMetatable(luaMessageTypeName)
 	L.SetGlobal(luaMessageTypeName, mmt)
 	L.SetField(mmt, "__index", L.SetFuncs(L.NewTable(), messageMethods))
+	mmt.RawSetString("__tostring", L.NewFunction(messageToString))
 
 	// Register the User usertype
 	umt := L.NewTypeMetatable(luaUserTypeName)
 	L.SetGlobal(luaUserTypeName, umt)
 	L.SetField(umt, "__index", L.SetFuncs(L.NewTable(), userMethods))
+	umt.RawSetString("__tostring", L.NewFunction(userToString))
 
 	return L
 }
