@@ -89,6 +89,24 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 	}
 }
 
+// Implement meshbot.ChatUser interface
+
+func (n *Node) GetId() int {
+	return int(n.Id)
+}
+
+func (n *Node) GetIDExpression() string {
+	return fmt.Sprintf("!%8x", n.Id)
+}
+
+func (n *Node) GetShortName() string {
+	return n.ShortName
+}
+
+func (n *Node) GetLongName() string {
+	return n.LongName
+}
+
 func (n *Node) String() string {
 	var col string
 	if n.Connected {
@@ -114,7 +132,7 @@ func (n *Node) String() string {
 		col,
 		shortName,
 		n.LongName,
-		n.IDExpression(),
+		n.GetIDExpression(),
 	)
 }
 
@@ -143,6 +161,18 @@ func (n *Node) VerboseString() string {
 	)
 }
 
-func (n *Node) IDExpression() string {
-	return fmt.Sprintf("!%x", n.Id)
+func (n *Node) GetPosition() [3]float32 {
+	panic("TODO: implement")
+}
+
+func (n *Node) GetHopsAway() int {
+	return int(n.HopsAway)
+}
+
+func (n *Node) GetRSSI() float32 {
+	panic("TODO: implement")
+}
+
+func (n *Node) GetSNR() float32 {
+	return n.Snr
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/timendus/meshbot/meshbot"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 )
 
@@ -48,7 +49,29 @@ type Message struct {
 	Position           *position
 }
 
-func (m *Message) Reply(message string) uint32 {
+func (m Message) Reply(message string) {
+	m.doReply(message)
+}
+
+func (m Message) ReplyBlocking(message string, timeout ...time.Duration) chan bool {
+	if m.ReceivingNode == nil {
+		return nil
+	}
+	if len(timeout) == 0 {
+		timeout = []time.Duration{DEFAULT_BLOCKING_MESSAGE_TIMEOUT}
+	}
+	ch := make(chan bool)
+	id := m.doReply(message)
+	m.ReceivingNode.Acks[id] = ch
+	go func() {
+		time.Sleep(timeout[0])
+		ch <- false
+		delete(m.ReceivingNode.Acks, id)
+	}()
+	return ch
+}
+
+func (m *Message) doReply(message string) uint32 {
 	id := rand.Uint32()
 	if m.ReceivingNode == nil {
 		return id
@@ -77,29 +100,38 @@ func (m *Message) Reply(message string) uint32 {
 	return id
 }
 
-func (m *Message) ReplyBlocking(message string, timeout ...time.Duration) chan bool {
-	if m.ReceivingNode == nil {
-		return nil
-	}
-	if len(timeout) == 0 {
-		timeout = []time.Duration{DEFAULT_BLOCKING_MESSAGE_TIMEOUT}
-	}
-	ch := make(chan bool)
-	id := m.Reply(message)
-	m.ReceivingNode.Acks[id] = ch
-	go func() {
-		time.Sleep(timeout[0])
-		ch <- false
-		delete(m.ReceivingNode.Acks, id)
-	}()
-	return ch
+// Implement meshbot.ChatMessage interface
+
+func (m Message) GetText() string {
+	return m.Text
 }
 
-func (m *Message) IsPrivateMessage() bool {
-	return m.ToNode.Id != Broadcast.Id
+func (m Message) IsPrivateMessage() bool {
+	return m.ToNode != nil && m.ToNode.Id != Broadcast.Id
 }
 
-func (m *Message) String() string {
+func (m Message) GetType() string {
+	return m.MessageType
+}
+
+func (m Message) GetChannelName() string {
+	panic("TODO: implement")
+	// return ""
+}
+
+func (m Message) GetSenderNode() meshbot.ChatUser {
+	return m.FromNode
+}
+
+func (m Message) GetReceiverNode() meshbot.ChatUser {
+	return m.ToNode
+}
+
+func (m Message) FindNode(id string) meshbot.ChatUser {
+	panic("TODO: implement")
+}
+
+func (m Message) String() string {
 	direction := ""
 	if m.FromNode != nil {
 		direction += m.FromNode.String()

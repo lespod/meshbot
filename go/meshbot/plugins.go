@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/timendus/meshbot/meshwrapper"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -29,7 +28,7 @@ type command struct {
 	IsCatchAll     bool
 	IsCatchAllText bool
 	Hidden         bool
-	Function       func(*meshwrapper.Message) (State, error)
+	Function       func(*ChatMessage) (State, error)
 }
 
 type contextKey string
@@ -102,7 +101,7 @@ func newCommand(definition *lua.LTable, L *lua.LState) command {
 		IsCatchAll:     false,
 		IsCatchAllText: false,
 		Hidden:         lua.LVAsBool(definition.RawGetString("hidden")),
-		Function: func(message *meshwrapper.Message) (State, error) {
+		Function: func(message *ChatMessage) (State, error) {
 			function, ok := definition.RawGetString("func").(*lua.LFunction)
 			if !ok {
 				return "ERROR", nil
@@ -185,15 +184,14 @@ func createLuaVM() *lua.LState {
 	memory.RawSetString("write", L.NewFunction(func(L *lua.LState) int {
 		ctx := L.Context()
 		key := L.CheckString(1)
-		value := L.CheckString(2)
-		ctx.Value(contextKey("storage")).(map[string]string)[key] = value
+		ctx.Value(contextKey("storage")).(map[string]lua.LValue)[key] = L.Get(2)
 		return 0
 	}))
 	memory.RawSetString("read", L.NewFunction(func(L *lua.LState) int {
 		ctx := L.Context()
 		key := L.CheckString(1)
-		value := ctx.Value(contextKey("storage")).(map[string]string)[key]
-		L.Push(lua.LString(value))
+		value := ctx.Value(contextKey("storage")).(map[string]lua.LValue)[key]
+		L.Push(value)
 		return 1
 	}))
 	bot.RawSetString("memory", memory)
@@ -209,12 +207,13 @@ func createLuaVM() *lua.LState {
 var messageMethods = map[string]lua.LGFunction{
 	"reply":         messageReply,
 	"replyBlocking": messageReplyBlocking,
+	"text":          messageText,
 }
 
-// Checks whether the first lua argument is a *LUserData with *Message and returns this *Message
-func checkMessage(L *lua.LState) *meshwrapper.Message {
+// Checks whether the first lua argument is a *LUserData with *ChatMessage and returns this *ChatMessage
+func checkMessage(L *lua.LState) *ChatMessage {
 	ud := L.CheckUserData(1)
-	if v, ok := ud.Value.(*meshwrapper.Message); ok {
+	if v, ok := ud.Value.(*ChatMessage); ok {
 		return v
 	}
 	L.ArgError(1, "message expected")
@@ -222,15 +221,21 @@ func checkMessage(L *lua.LState) *meshwrapper.Message {
 }
 
 func messageReply(L *lua.LState) int {
-	message := checkMessage(L)
+	message := *checkMessage(L)
 	message.Reply(L.CheckString(2))
 	return 0
 }
 
 func messageReplyBlocking(L *lua.LState) int {
-	message := checkMessage(L)
-	timeout := time.Second * time.Duration(L.OptInt(3, int(meshwrapper.DEFAULT_BLOCKING_MESSAGE_TIMEOUT)))
+	message := *checkMessage(L)
+	timeout := time.Second * time.Duration(L.OptInt(3, int(DEFAULT_BLOCKING_MESSAGE_TIMEOUT)))
 	delivered := <-message.ReplyBlocking(L.CheckString(2), timeout)
 	L.Push(lua.LBool(delivered))
+	return 1
+}
+
+func messageText(L *lua.LState) int {
+	message := *checkMessage(L)
+	L.Push(lua.LString(message.GetText()))
 	return 1
 }

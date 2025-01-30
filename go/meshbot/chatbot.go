@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"strings"
-
-	"github.com/timendus/meshbot/meshwrapper"
 )
 
 type State string
@@ -77,13 +75,13 @@ func (c *Chatbot) String() string {
 	return description
 }
 
-func (c *Chatbot) HandleMessage(message meshwrapper.Message) {
+func (c *Chatbot) HandleMessage(message ChatMessage) {
 	// See if we have one or more catch all handlers
 	c.handleMessageIf(message, func(cmd command, _ string) bool { return cmd.IsCatchAll })
 
 	// Messages that are not text messages can only be handled by
 	// catch all commands, so in that case we're done here.
-	if message.MessageType != meshwrapper.MESSAGE_TYPE_TEXT_MESSAGE {
+	if message.GetType() != TEXT_MESSAGE {
 		return
 	}
 
@@ -96,7 +94,7 @@ func (c *Chatbot) HandleMessage(message meshwrapper.Message) {
 	c.handleMessageIf(message, func(cmd command, _ string) bool { return cmd.IsCatchAllText })
 }
 
-func (c *Chatbot) handleMessageIf(message meshwrapper.Message, comp func(command, string) bool) bool {
+func (c *Chatbot) handleMessageIf(message ChatMessage, comp func(command, string) bool) bool {
 	isPrivateMessage := message.IsPrivateMessage()
 	matchFound := false
 	for _, plugin := range c.plugins {
@@ -104,7 +102,7 @@ func (c *Chatbot) handleMessageIf(message meshwrapper.Message, comp func(command
 			validCommand := command.State == c.state &&
 				(command.Private == isPrivateMessage ||
 					command.Channel == !isPrivateMessage)
-			if validCommand && comp(command, message.Text) {
+			if validCommand && comp(command, message.GetText()) {
 				matchFound = true
 				newState, err := command.Function(&message)
 				if err != nil {
