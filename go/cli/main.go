@@ -43,7 +43,7 @@ func (m chatMessage) GetText() string {
 }
 
 func (m chatMessage) IsPrivateMessage() bool {
-	return false
+	return true
 }
 
 func (m chatMessage) GetType() string {

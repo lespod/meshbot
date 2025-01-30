@@ -39,8 +39,8 @@ const (
 	CATCH_ALL_TEXT
 )
 
-func LoadPlugin(filename string) (*plugin, error) {
-	L := createLuaVM()
+func LoadPlugin(filename string, bot *Chatbot) (*plugin, error) {
+	L := createLuaVM(bot)
 	if err := L.DoFile(filename); err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func newCommand(definition *lua.LTable, L *lua.LState) command {
 	return command
 }
 
-func createLuaVM() *lua.LState {
+func createLuaVM(cb *Chatbot) *lua.LState {
 	// Initialize a bare-bones Lua VM
 	L := lua.NewState(lua.Options{SkipOpenLibs: true})
 	lua.OpenBase(L)
@@ -171,7 +171,7 @@ func createLuaVM() *lua.LState {
 	bot.RawSetString("CATCH_ALL_EVENTS", lua.LNumber(CATCH_ALL_EVENTS))
 	botMT := L.NewTable()
 	botMT.RawSetString("__tostring", L.NewFunction(func(L *lua.LState) int {
-		L.Push(lua.LString("Hello, world!"))
+		L.Push(lua.LString(cb.String()))
 		return 1
 	}))
 	L.SetMetatable(bot, botMT)

@@ -30,7 +30,7 @@ func (c *Chatbot) ReloadPlugins() error {
 		if !strings.HasSuffix(entry.Name(), ".lua") {
 			continue
 		}
-		plugin, err := LoadPlugin("plugins/" + entry.Name())
+		plugin, err := LoadPlugin("plugins/"+entry.Name(), c)
 		if err != nil {
 			return err
 		}
