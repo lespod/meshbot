@@ -94,7 +94,7 @@ func messageFindNode(L *lua.LState) int {
 		return 1
 	}
 	userUserData := L.NewUserData()
-	userUserData.Value = node
+	userUserData.Value = &node
 	L.SetMetatable(userUserData, L.GetTypeMetatable(luaUserTypeName))
 	L.Push(userUserData)
 	return 1

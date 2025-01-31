@@ -65,7 +65,13 @@ func (m chatMessage) GetReceiverNode() meshbot.ChatUser {
 	return m.ToNode
 }
 
-func (m chatMessage) FindNode(id string) *meshbot.ChatUser {
+func (m chatMessage) FindNode(needle string) meshbot.ChatUser {
+	if needle == m.FromNode.GetShortName() {
+		return m.FromNode
+	}
+	if needle == m.ToNode.GetShortName() {
+		return m.ToNode
+	}
 	return nil
 }
 

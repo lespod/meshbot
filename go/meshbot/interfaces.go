@@ -15,7 +15,7 @@ type ChatMessage interface {
 	GetChannelName() string
 	GetSenderNode() ChatUser
 	GetReceiverNode() ChatUser
-	FindNode(string) *ChatUser
+	FindNode(string) ChatUser
 	String() string
 	Reply(string)
 	ReplyBlocking(string, ...time.Duration) chan bool
