@@ -30,6 +30,7 @@ var userMethods = map[string]lua.LGFunction{
 	"getHopsAway":     userGetHopsAway,
 	"getRSSI":         userGetRSSI,
 	"getSNR":          userGetSNR,
+	"isSelf":          userIsSelf,
 }
 
 // Checks whether the first lua argument is a *LUserData with *ChatMessage and returns this *ChatMessage
@@ -189,5 +190,11 @@ func userGetRSSI(L *lua.LState) int {
 func userGetSNR(L *lua.LState) int {
 	user := *checkUser(L)
 	L.Push(lua.LNumber(user.GetSNR()))
+	return 1
+}
+
+func userIsSelf(L *lua.LState) int {
+	user := *checkUser(L)
+	L.Push(lua.LBool(user.IsSelf()))
 	return 1
 }

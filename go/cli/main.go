@@ -133,3 +133,7 @@ func (m chatUser) GetRSSI() float32 {
 func (m chatUser) GetSNR() float32 {
 	return 5.2
 }
+
+func (m chatUser) IsSelf() bool {
+	return m.NodeID == 23857
+}

@@ -176,3 +176,7 @@ func (n *Node) GetRSSI() float32 {
 func (n *Node) GetSNR() float32 {
 	return n.Snr
 }
+
+func (n *Node) IsSelf() bool {
+	return n.Connected
+}

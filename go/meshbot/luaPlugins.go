@@ -3,6 +3,7 @@ package meshbot
 import (
 	"context"
 	"errors"
+	"time"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -44,7 +45,7 @@ func LoadPlugin(filename string, bot *Chatbot) (*plugin, error) {
 	if err := L.DoFile(filename); err != nil {
 		return nil, err
 	}
-	definition, ok := L.GetGlobal("plugin").(*lua.LTable)
+	definition, ok := L.GetGlobal("Plugin").(*lua.LTable)
 	if !ok {
 		return nil, errors.New("no plugin definition found in file " + filename)
 	}
@@ -168,7 +169,7 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 
 	// Make some properties of the bot available to Lua
 	bot := L.NewTable()
-	L.SetGlobal("bot", bot)
+	L.SetGlobal("Bot", bot)
 	bot.RawSetString("CATCH_ALL_TEXT", lua.LNumber(CATCH_ALL_TEXT))
 	bot.RawSetString("CATCH_ALL_EVENTS", lua.LNumber(CATCH_ALL_EVENTS))
 	botMT := L.NewTable()
@@ -178,10 +179,18 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 	}))
 	L.SetMetatable(bot, botMT)
 
+	// Allow Lua scripts to get the time and date on bot, without access to the
+	// whole `os` library
+	L.SetField(bot, "date", L.NewFunction(func(L *lua.LState) int {
+		format := L.OptString(1, "%c")
+		L.Push(lua.LString(time.Now().Format(format)))
+		return 1
+	}))
+
 	// This is pretty crude, but it provides a way to save some data from the
 	// Lua scripts, that we can actually persist and make thread safe in the
 	// future.
-	L.SetContext(context.WithValue(context.Background(), contextKey("storage"), make(map[string]string)))
+	L.SetContext(context.WithValue(context.Background(), contextKey("storage"), make(map[string]lua.LValue)))
 	memory := L.NewTable()
 	memory.RawSetString("write", L.NewFunction(func(L *lua.LState) int {
 		ctx := L.Context()
@@ -192,8 +201,12 @@ func createLuaVM(cb *Chatbot) *lua.LState {
 	memory.RawSetString("read", L.NewFunction(func(L *lua.LState) int {
 		ctx := L.Context()
 		key := L.CheckString(1)
-		value := ctx.Value(contextKey("storage")).(map[string]lua.LValue)[key]
-		L.Push(value)
+		value, ok := ctx.Value(contextKey("storage")).(map[string]lua.LValue)[key]
+		if ok {
+			L.Push(value)
+		} else {
+			L.Push(lua.LNil)
+		}
 		return 1
 	}))
 	bot.RawSetString("memory", memory)

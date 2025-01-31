@@ -1,4 +1,4 @@
-plugin = {
+Plugin = {
     name = "About",
     description = "Respond to hidden commands with a friendly message.",
     version = "1.0",
@@ -9,11 +9,12 @@ plugin = {
         -- These commands might be "guessed" by users, and will result in
         -- expected behaviour.
         {
-            command = {"/ABOUT", "/HELP", "/MESHBOT"},
-            prefix = {"/MESHBOT"},
+            command = { "/ABOUT", "/HELP", "/MESHBOT" },
+            prefix = { "/MESHBOT" },
             channel = true,
             func = function(message)
-                message:reply("🤖👋 Hello! I'm your friendly neighbourhood Meshbot. My code is available at https://github.com/timendus/meshbot. Send me a direct message to see what I can do!")
+                message:reply(
+                    "🤖👋 Hello! I'm your friendly neighbourhood Meshbot. My code is available at https://github.com/timendus/meshbot. Send me a direct message to see what I can do!")
             end,
         },
 
@@ -21,9 +22,9 @@ plugin = {
         -- matched in the "MAIN" state when receiving a private message, we reply
         -- with the capabilities of this bot.
         {
-            command = bot.CATCH_ALL_TEXT,
+            command = Bot.CATCH_ALL_TEXT,
             func = function(message)
-                message:reply(tostring(bot))
+                message:reply(tostring(Bot))
             end,
         },
 

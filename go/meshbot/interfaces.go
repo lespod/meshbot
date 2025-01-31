@@ -32,4 +32,5 @@ type ChatUser interface {
 	GetHopsAway() int
 	GetRSSI() float32
 	GetSNR() float32
+	IsSelf() bool
 }
