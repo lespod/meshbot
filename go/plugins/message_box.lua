@@ -68,7 +68,7 @@ function SendNewMessages(message)
         return
     end
 
-    message:reply("🤖📬 You have " ..
+    message:replyBlocking("🤖📬 You have " ..
         inbox.numUnread ..
         " new " .. Pluralize("message", inbox.numUnread) .. ". Sending " .. Pluralize("it", inbox.numUnread) .. " now...")
     SendMessages(message, inbox, false)
@@ -84,7 +84,7 @@ function SendOldMessages(message)
         return
     end
 
-    message:reply("🤖📬 You have " ..
+    message:replyBlocking("🤖📬 You have " ..
         inbox.numRead ..
         " old " .. Pluralize("message", inbox.numRead) .. ". Sending " .. Pluralize("it", inbox.numRead) .. " now...")
     SendMessages(message, inbox, true)
@@ -158,7 +158,7 @@ function NotifyUser(message)
     -- If they are messaging us first, they will probably quickly find out that
     -- they have messages, and it just breaks the flow. So only check for all
     -- other message types.
-    if message:getType() == "text message" and message:getReceiver():isSelf() then
+    if message:getType() == "text message" and (message:getReceiver() == nil or message:getReceiver():isSelf()) then
         return
     end
 
@@ -225,7 +225,7 @@ end
 function SendMessages(message, inbox, read)
     for _, m in ipairs(inbox) do
         if m.read == read then
-            m.read = message:replyBlocking("🤖✉️ From " .. m.sender .. " at " .. m.timestamp .. ":\n\n" .. m.contents)
+            m.read = message:replyBlocking("🤖✉️ From " .. m.sender .. " at " .. m.timestamp .. "\n\n" .. m.contents)
         end
     end
 end
