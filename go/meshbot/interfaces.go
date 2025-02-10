@@ -4,8 +4,6 @@ import "time"
 
 const (
 	TEXT_MESSAGE = "text message"
-
-	DEFAULT_BLOCKING_MESSAGE_TIMEOUT = 30 * time.Second
 )
 
 type ChatMessage interface {

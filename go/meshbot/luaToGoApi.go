@@ -45,30 +45,50 @@ func checkMessage(L *lua.LState) *ChatMessage {
 
 func messageText(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(message.GetText()))
 	return 1
 }
 
 func messageIsPrivate(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LFalse)
+		return 1
+	}
 	L.Push(lua.LBool(message.IsPrivateMessage()))
 	return 1
 }
 
 func messageGetType(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(message.GetType()))
 	return 1
 }
 
 func messageGetChannel(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(message.GetChannelName()))
 	return 1
 }
 
 func messageGetSender(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	node := message.GetSenderNode()
 	userUserData := L.NewUserData()
 	userUserData.Value = &node
@@ -79,6 +99,10 @@ func messageGetSender(L *lua.LState) int {
 
 func messageGetReceiver(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	node := message.GetReceiverNode()
 	userUserData := L.NewUserData()
 	userUserData.Value = &node
@@ -89,6 +113,10 @@ func messageGetReceiver(L *lua.LState) int {
 
 func messageFindNode(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	node := message.FindNode(L.CheckString(2))
 	if node == nil {
 		L.Push(lua.LNil)
@@ -103,21 +131,38 @@ func messageFindNode(L *lua.LState) int {
 
 func messageToString(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(message.String()))
 	return 1
 }
 
 func messageReply(L *lua.LState) int {
 	message := *checkMessage(L)
+	if message == nil {
+		return 0
+	}
 	message.Reply(L.CheckString(2))
 	return 0
 }
 
 func messageReplyBlocking(L *lua.LState) int {
 	message := *checkMessage(L)
-	timeout := time.Second * time.Duration(L.OptInt(3, int(DEFAULT_BLOCKING_MESSAGE_TIMEOUT)))
-	delivered := <-message.ReplyBlocking(L.CheckString(2), timeout)
-	L.Push(lua.LBool(delivered))
+	if message == nil {
+		L.Push(lua.LFalse)
+		return 1
+	}
+	duration := L.OptInt(3, -1)
+	if duration == -1 {
+		delivered := <-message.ReplyBlocking(L.CheckString(2))
+		L.Push(lua.LBool(delivered))
+	} else {
+		timeout := time.Second * time.Duration(duration)
+		delivered := <-message.ReplyBlocking(L.CheckString(2), timeout)
+		L.Push(lua.LBool(delivered))
+	}
 	return 1
 }
 
@@ -132,42 +177,70 @@ func checkUser(L *lua.LState) *ChatUser {
 
 func userGetId(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LNumber(user.GetId()))
 	return 1
 }
 
 func userGetIDExpression(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(user.GetIDExpression()))
 	return 1
 }
 
 func userGetShortName(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(user.GetShortName()))
 	return 1
 }
 
 func userGetLongName(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(user.GetLongName()))
 	return 1
 }
 
 func userToString(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(user.String()))
 	return 1
 }
 
 func userVerboseString(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LString(user.VerboseString()))
 	return 1
 }
 
 func userGetPosition(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	position := user.GetPosition()
 	L.Push(lua.LNumber(position[0]))
 	L.Push(lua.LNumber(position[1]))
@@ -177,24 +250,40 @@ func userGetPosition(L *lua.LState) int {
 
 func userGetHopsAway(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LNumber(user.GetHopsAway()))
 	return 1
 }
 
 func userGetRSSI(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LNumber(user.GetRSSI()))
 	return 1
 }
 
 func userGetSNR(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	L.Push(lua.LNumber(user.GetSNR()))
 	return 1
 }
 
 func userIsSelf(L *lua.LState) int {
 	user := *checkUser(L)
+	if user == nil {
+		L.Push(lua.LFalse)
+		return 1
+	}
 	L.Push(lua.LBool(user.IsSelf()))
 	return 1
 }
