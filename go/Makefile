@@ -8,3 +8,9 @@ update:
 
 run:
 	@go run *.go
+
+test:
+	@go test -v ./...
+
+lines:
+	@find . -name '*.go' | xargs wc -l
