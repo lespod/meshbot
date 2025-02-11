@@ -79,14 +79,13 @@ func (m chatMessage) String() string {
 	return m.Text
 }
 
-func (m chatMessage) Reply(message string) {
-	fmt.Println(message)
-}
-
-func (m chatMessage) ReplyBlocking(message string, timeout ...time.Duration) chan bool {
+func (m chatMessage) Reply(message string, timeout ...time.Duration) chan bool {
 	fmt.Println(message)
 	ch := make(chan bool, 1)
-	ch <- true
+	go func() {
+		time.Sleep(2 * time.Second)
+		ch <- true
+	}()
 	return ch
 }
 

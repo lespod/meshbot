@@ -15,8 +15,7 @@ type ChatMessage interface {
 	GetReceiverNode() ChatUser
 	FindNode(string) ChatUser
 	String() string
-	Reply(string)
-	ReplyBlocking(string, ...time.Duration) chan bool
+	Reply(string, ...time.Duration) chan bool
 }
 
 type ChatUser interface {

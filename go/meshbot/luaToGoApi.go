@@ -9,15 +9,14 @@ import (
 )
 
 var messageMethods = map[string]lua.LGFunction{
-	"getText":       messageText,
-	"isPrivate":     messageIsPrivate,
-	"getType":       messageGetType,
-	"getChannel":    messageGetChannel,
-	"getSender":     messageGetSender,
-	"getReceiver":   messageGetReceiver,
-	"findNode":      messageFindNode,
-	"reply":         messageReply,
-	"replyBlocking": messageReplyBlocking,
+	"getText":     messageText,
+	"isPrivate":   messageIsPrivate,
+	"getType":     messageGetType,
+	"getChannel":  messageGetChannel,
+	"getSender":   messageGetSender,
+	"getReceiver": messageGetReceiver,
+	"findNode":    messageFindNode,
+	"reply":       messageReply,
 }
 
 var userMethods = map[string]lua.LGFunction{
@@ -141,29 +140,37 @@ func messageToString(L *lua.LState) int {
 
 func messageReply(L *lua.LState) int {
 	message := *checkMessage(L)
-	if message == nil {
+	text := L.CheckString(2)
+	callback := L.OptFunction(3, nil)
+	timeout := L.OptInt(4, -1)
+
+	if message == nil || text == "" {
+		callCallback(L, callback, false)
 		return 0
 	}
-	message.Reply(L.CheckString(2))
+
+	go func(L *lua.LState, callback *lua.LFunction, text string, timeout int) {
+		var delivered bool
+		if timeout == -1 {
+			delivered = <-message.Reply(text)
+		} else {
+			timeout := time.Second * time.Duration(timeout)
+			delivered = <-message.Reply(text, timeout)
+		}
+		callCallback(L, callback, delivered)
+	}(L, callback, text, timeout)
 	return 0
 }
 
-func messageReplyBlocking(L *lua.LState) int {
-	message := *checkMessage(L)
-	if message == nil {
-		L.Push(lua.LFalse)
-		return 1
+func callCallback(L *lua.LState, cb *lua.LFunction, result bool) {
+	if cb == nil {
+		return
 	}
-	duration := L.OptInt(3, -1)
-	if duration == -1 {
-		delivered := <-message.ReplyBlocking(L.CheckString(2))
-		L.Push(lua.LBool(delivered))
-	} else {
-		timeout := time.Second * time.Duration(duration)
-		delivered := <-message.ReplyBlocking(L.CheckString(2), timeout)
-		L.Push(lua.LBool(delivered))
-	}
-	return 1
+	L.CallByParam(lua.P{
+		Fn:      cb,
+		NRet:    0,
+		Protect: true,
+	}, lua.LBool(result))
 }
 
 func checkUser(L *lua.LState) *ChatUser {

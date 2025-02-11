@@ -2,10 +2,12 @@ package meshwrapper
 
 import (
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/timendus/meshbot/config"
 	"github.com/timendus/meshbot/meshbot"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 )
@@ -25,7 +27,7 @@ const (
 	MESSAGE_TYPE_TELEMETRY_LOCAL_STATS = "local stats telemetry"
 	MESSAGE_TYPE_OTHER                 = "other"
 
-	DEFAULT_BLOCKING_MESSAGE_TIMEOUT = 30 * time.Second
+	DEFAULT_BLOCKING_MESSAGE_TIMEOUT = 60 * time.Second
 )
 
 type Message struct {
@@ -49,46 +51,67 @@ type Message struct {
 	Position           *position
 }
 
-func (m Message) Reply(message string) {
-	m.doReply(message)
+func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
+	ch := make(chan bool)
+
+	go func() {
+		messageTimeout := DEFAULT_BLOCKING_MESSAGE_TIMEOUT
+		if len(timeout) > 0 {
+			messageTimeout = timeout[0]
+		}
+
+		for _, msg := range helpers.BreakMessage(message) {
+			ok := <-m.send(msg, messageTimeout)
+			if !ok {
+				ch <- false
+				return
+			}
+		}
+
+		ch <- true
+	}()
+
+	return ch
 }
 
-func (m Message) ReplyBlocking(message string, timeout ...time.Duration) chan bool {
-	if m.ReceivingNode == nil {
-		return nil
-	}
-	if len(timeout) == 0 {
-		timeout = []time.Duration{DEFAULT_BLOCKING_MESSAGE_TIMEOUT}
-	}
+func (m *Message) send(message string, timeout time.Duration) chan bool {
 	ch := make(chan bool)
-	id := m.doReply(message)
+	id := m.sendTextMessage(message)
 	m.ReceivingNode.Acks[id] = ch
 	go func() {
-		time.Sleep(timeout[0])
+		time.Sleep(timeout)
 		ch <- false
 		delete(m.ReceivingNode.Acks, id)
 	}()
 	return ch
 }
 
-func (m *Message) doReply(message string) uint32 {
+func (m *Message) sendTextMessage(message string) uint32 {
+	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
+	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
+	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
+
 	id := rand.Uint32()
-	if m.ReceivingNode == nil {
+	cfg := config.GetConfig()
+	nodeAllowed := cfg.Settings.TransmitExceptionNodeId != 0 && m.FromNode.Id == cfg.Settings.TransmitExceptionNodeId
+	if !cfg.Settings.AllowTransmit && !nodeAllowed {
+		log.Println("WARNING: Transmission is not allowed by configuration. Attempted to send: " + message)
 		return id
 	}
+
+	// Show we're transmitting this on the console. TODO: move this out of this
+	// package. Same with error log above; this code should not be logging
+	// stuff.
+	log.Println(m.toReplyString(message))
+
 	m.ReceivingNode.SendMessage(meshtastic.ToRadio_Packet{
 		Packet: &meshtastic.MeshPacket{
 			Id:       id,
 			To:       m.FromNode.Id,
 			From:     m.ToNode.Id,
-			HopLimit: 3,
+			HopLimit: min(m.HopsAway+2, 7),
 			WantAck:  true,
 			Priority: meshtastic.MeshPacket_Priority(meshtastic.MeshPacket_Priority_value["RELIABLE"]),
-
-			// PkiEncrypted: true,
-			// PublicKey:    []byte{1, 2, 3},
-			// Channel: 0,
-
 			PayloadVariant: &meshtastic.MeshPacket_Decoded{
 				Decoded: &meshtastic.Data{
 					Portnum: meshtastic.PortNum_TEXT_MESSAGE_APP,
@@ -163,6 +186,22 @@ func (m Message) String() string {
 	}
 
 	return fmt.Sprintf("%s: %s %s", direction, content, m.radioMetricsString())
+}
+
+func (m *Message) toReplyString(message string) string {
+	direction := ""
+	if m.ToNode != nil {
+		direction += m.ToNode.String()
+	} else {
+		direction += "No node"
+	}
+	if m.FromNode != nil {
+		direction += " -> " + m.FromNode.String()
+	} else {
+		direction += " -> No node"
+	}
+
+	return fmt.Sprintf("%s: %s", direction, message)
 }
 
 func (m *Message) radioMetricsString() string {

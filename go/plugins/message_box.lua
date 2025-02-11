@@ -68,10 +68,17 @@ function SendNewMessages(message)
         return
     end
 
-    message:replyBlocking("🤖📬 You have " ..
+    message:reply("🤖📬 You have " ..
         inbox.numUnread ..
-        " new " .. Pluralize("message", inbox.numUnread) .. ". Sending " .. Pluralize("it", inbox.numUnread) .. " now...")
-    SendMessages(message, inbox, false)
+        " new " .. Pluralize("message", inbox.numUnread) .. ". Sending " .. Pluralize("it", inbox.numUnread) .. " now...",
+        function(success)
+            if success then
+                SendMessages(message, inbox, false)
+            else
+                print("Could not send new messages, delivery timed out")
+            end
+        end
+    )
 end
 
 -- Send all read messages to the user
@@ -84,10 +91,17 @@ function SendOldMessages(message)
         return
     end
 
-    message:replyBlocking("🤖📬 You have " ..
+    message:reply("🤖📬 You have " ..
         inbox.numRead ..
-        " old " .. Pluralize("message", inbox.numRead) .. ". Sending " .. Pluralize("it", inbox.numRead) .. " now...")
-    SendMessages(message, inbox, true)
+        " old " .. Pluralize("message", inbox.numRead) .. ". Sending " .. Pluralize("it", inbox.numRead) .. " now...",
+        function(success)
+            if success then
+                SendMessages(message, inbox, true)
+            else
+                print("Could not send old messages, delivery timed out")
+            end
+        end
+    )
 end
 
 -- Clear all messages that have already been read
@@ -223,10 +237,30 @@ function GetInbox(node)
 end
 
 function SendMessages(message, inbox, read)
-    for _, m in ipairs(inbox) do
-        if m.read == read then
-            m.read = message:replyBlocking("🤖✉️ From " .. m.sender .. " at " .. m.timestamp .. "\n\n" .. m.contents)
-        end
+    SendMessage(message, inbox, 1, read)
+end
+
+function SendMessage(message, inbox, index, read)
+    -- Are we done?
+    if index > #inbox then
+        return
+    end
+
+    -- Send this message if its read status matches the requested read status
+    local msg = inbox[index]
+    if msg.read == read then
+        message:reply("🤖✉️ From " .. msg.sender .. " at " .. msg.timestamp .. "\n\n" .. msg.contents,
+            function(success)
+                msg.read = success
+                if success then
+                    SendMessage(message, inbox, index + 1, read)
+                else
+                    print("Could not send a message, delivery timed out")
+                end
+            end
+        )
+    else
+        SendMessage(message, inbox, index + 1, read)
     end
 end
 

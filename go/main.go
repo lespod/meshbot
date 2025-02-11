@@ -17,6 +17,8 @@ import (
 	"go.bug.st/serial"
 )
 
+var bot *meshbot.Chatbot
+
 func main() {
 	log.Println("Starting Meshed Potatoes!")
 	config.InitConfig()
@@ -64,7 +66,7 @@ func main() {
 	}
 
 	// Launch the chat bot
-	bot := meshbot.NewChatbot()
+	bot = meshbot.NewChatbot()
 	err := bot.ReloadPlugins()
 	if err != nil {
 		log.Fatal(err)

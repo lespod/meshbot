@@ -13,6 +13,7 @@
     "settings": {
         "allow_tcp": true,
         "allow_serial": true,
-        "allow_transmit": false
+        "allow_transmit": false,
+        "transmit_exception_node_id": 0
     }
 }

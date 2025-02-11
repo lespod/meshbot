@@ -29,9 +29,10 @@ type Connection struct {
 }
 
 type Settings struct {
-	AllowTCP      bool `json:"allow_tcp"`
-	AllowSerial   bool `json:"allow_serial"`
-	AllowTransmit bool `json:"allow_transmit"`
+	AllowTCP                bool   `json:"allow_tcp"`
+	AllowSerial             bool   `json:"allow_serial"`
+	AllowTransmit           bool   `json:"allow_transmit"`
+	TransmitExceptionNodeId uint32 `json:"transmit_exception_node_id"`
 }
 
 var config Config
