@@ -94,13 +94,12 @@ func getSerialDevices() ([]string, error) {
 }
 
 func connected(node m.ConnectedNode) {
-	log.Println("Connected to a node!")
-	log.Println("This is me: " + node.String())
-	log.Println("Node list: \n" + node.NodeList.String())
-	log.Println("Channel list:")
-	for _, channel := range node.Channels {
-		log.Println("   " + channel.String())
-	}
+	log.Println("Connected to " + node.String())
+	// log.Println("Node list: \n" + node.NodeList.String())
+	// log.Println("Channel list:")
+	// for _, channel := range node.Channels {
+	// 	log.Println("   " + channel.String())
+	// }
 }
 
 func disconnected(node m.ConnectedNode) {
