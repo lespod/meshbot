@@ -63,7 +63,7 @@ func (n *ConnectedNode) Close() error {
 }
 
 func (n *ConnectedNode) String() string {
-	return n.Node.String()
+	return n.Node.ColorString()
 }
 
 func (n *ConnectedNode) SendMessage(message meshtastic.ToRadio_Packet) error {

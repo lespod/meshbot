@@ -107,7 +107,7 @@ func (n *Node) GetLongName() string {
 	return n.LongName
 }
 
-func (n *Node) String() string {
+func (n *Node) ColorString() string {
 	var col string
 	if n.Connected {
 		col = "92"
@@ -131,6 +131,15 @@ func (n *Node) String() string {
 		"\033[%sm[%s] %s (%s)]\033[0m",
 		col,
 		shortName,
+		n.LongName,
+		n.GetIDExpression(),
+	)
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf(
+		"[%s] %s (%s)",
+		n.ShortName,
 		n.LongName,
 		n.GetIDExpression(),
 	)

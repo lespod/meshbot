@@ -160,12 +160,12 @@ func (m Message) FindNode(needle string) meshbot.ChatUser {
 func (m Message) String() string {
 	direction := ""
 	if m.FromNode != nil {
-		direction += m.FromNode.String()
+		direction += m.FromNode.ColorString()
 	} else {
 		direction += "No node"
 	}
 	if m.ToNode != nil {
-		direction += " -> " + m.ToNode.String()
+		direction += " -> " + m.ToNode.ColorString()
 	} else {
 		direction += " -> No node"
 	}
@@ -191,12 +191,12 @@ func (m Message) String() string {
 func (m *Message) toReplyString(message string) string {
 	direction := ""
 	if m.ToNode != nil {
-		direction += m.ToNode.String()
+		direction += m.ToNode.ColorString()
 	} else {
 		direction += "No node"
 	}
 	if m.FromNode != nil {
-		direction += " -> " + m.FromNode.String()
+		direction += " -> " + m.FromNode.ColorString()
 	} else {
 		direction += " -> No node"
 	}
