@@ -5,78 +5,92 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strconv"
 	"time"
 
+	"github.com/timendus/meshbot/config"
 	"github.com/timendus/meshbot/meshbot"
 	m "github.com/timendus/meshbot/meshwrapper"
 	"go.bug.st/serial"
 )
 
-var bot *meshbot.Chatbot
-
 func main() {
 	log.Println("Starting Meshed Potatoes!")
+	config.InitConfig()
+	cfg := config.GetConfig()
 
 	m.MessageEvents.Subscribe(m.AnyMessageEvent, message)
 	m.ConnectionEvents.Subscribe(m.ConnectedEvent, connected)
 	m.ConnectionEvents.Subscribe(m.DisconnectedEvent, disconnected)
 
-	// Attempt to auto-detect Meshtestic device on a serial port. Otherwise,
-	// connect over TCP.
+	// Connect to the meshtastic devices mentioned in the configuration file
+	for _, connection := range cfg.Connections {
+		var node *m.ConnectedNode
+		var port io.ReadWriteCloser
+		var err error
 
-	var node *m.ConnectedNode
+		switch connection.ConnectionType {
+		case config.SERIAL_CONNECTION:
+			if !cfg.Settings.AllowSerial {
+				log.Fatal("Serial connection configured, but not allowed by settings")
+			}
+			port, err = serial.Open(connection.SerialDevice, &serial.Mode{
+				BaudRate: 115200,
+			})
+			if err != nil {
+				log.Fatal("Could not open serial connection to '"+connection.SerialDevice+"': ", err)
+			}
+		case config.TCP_CONNECTION:
+			if !cfg.Settings.AllowTCP {
+				log.Fatal("TCP connection configured, but not allowed by settings")
+			}
+			port, err = net.Dial("tcp", connection.Hostname+":"+strconv.Itoa(connection.Port))
+			if err != nil {
+				log.Fatal("Could not open TCP connection to '"+connection.Hostname+":"+strconv.Itoa(connection.Port)+"': ", err)
+			}
 
-	ports, err := serial.GetPortsList()
-	if err != nil {
-		log.Println(err)
+		default:
+			log.Fatal("Invalid connection type!")
+		}
+
+		node, err = m.NewConnectedNode(port)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer node.Close()
 	}
 
-	if err == nil && len(ports) > 0 {
+	// Launch the chat bot
+	bot := meshbot.NewChatbot()
+	err := bot.ReloadPlugins()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Endless loop to keep the program from ending
+	for {
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// For later use
+func getSerialDevices() ([]string, error) {
+	ports, err := serial.GetPortsList()
+	if err != nil {
+		return ports, err
+	}
+
+	if len(ports) > 0 {
 		log.Printf("Found %d serial ports:\n", len(ports))
 		for i, port := range ports {
 			log.Printf("  [%d] %s\n", i, port)
 		}
-		log.Println("Defaulting to port: " + ports[0])
-
-		serialPort, err := serial.Open(ports[0], &serial.Mode{
-			BaudRate: 115200,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		node, err = m.NewConnectedNode(serialPort)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		tcpPort, err := net.Dial("tcp", "meshtastic.thuis:4403")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		node, err = m.NewConnectedNode(tcpPort)
-		if err != nil {
-			log.Fatal(err)
-		}
 	}
 
-	defer node.Close()
-
-	// Launch the chat bot
-
-	bot = meshbot.NewChatbot()
-	err = bot.ReloadPlugins()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(bot.String())
-
-	for {
-		time.Sleep(100 * time.Millisecond)
-	}
+	return ports, err
 }
 
 func connected(node m.ConnectedNode) {

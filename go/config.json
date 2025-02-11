@@ -1,0 +1,18 @@
+{
+    "connections": [
+        {
+            "name": "Networked device",
+            "hostname": "meshtastic.local",
+            "port": 4403
+        },
+        {
+            "name": "Local device",
+            "device": "/dev/ttyUSB0"
+        }
+    ],
+    "settings": {
+        "allow_tcp": true,
+        "allow_serial": true,
+        "allow_transmit": false
+    }
+}
