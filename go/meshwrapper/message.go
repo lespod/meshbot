@@ -2,7 +2,6 @@ package meshwrapper
 
 import (
 	"fmt"
-	"log"
 	"math/rand/v2"
 	"time"
 
@@ -93,35 +92,44 @@ func (m *Message) sendTextMessage(message string) uint32 {
 	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
 
 	id := rand.Uint32()
+
+	// Only transmit anything if the configuration allows it or the
+	// configuration has this particular node id as the exception. Otherwise,
+	// just silently drop the transmission.
 	cfg := config.GetConfig()
 	nodeAllowed := cfg.Settings.TransmitExceptionNodeId != 0 && m.FromNode.Id == cfg.Settings.TransmitExceptionNodeId
-	if !cfg.Settings.AllowTransmit && !nodeAllowed {
-		log.Println("WARNING: Transmission is not allowed by configuration. Attempted to send: " + message)
+	if !(cfg.Settings.AllowTransmit || nodeAllowed) {
 		return id
 	}
 
-	// Show we're transmitting this on the console. TODO: move this out of this
-	// package. Same with error log above; this code should not be logging
-	// stuff.
-	log.Println(m.toReplyString(message))
-
 	// If message was sent to a channel (and the config allows it), reply in the
-	// channel instead of privately.
-	recipient := m.FromNode.Id
+	// same channel instead of privately.
+	recipient := m.FromNode
 	if cfg.Settings.AllowTransmitToChannels && m.ToNode.Id == Broadcast.Id {
-		recipient = Broadcast.Id
+		recipient = &Broadcast
 	}
 	channelId := uint32(0)
 	if m.Channel != nil {
 		channelId = m.Channel.id
 	}
 
+	// Notify the rest of the system that we're sending this message
+	MessageEvents.publish(OutgoingMessageEvent, Message{
+		FromNode:    m.ReceivingNode.Node,
+		ToNode:      recipient,
+		Text:        message,
+		MessageType: MESSAGE_TYPE_TEXT_MESSAGE,
+		Timestamp:   time.Now(),
+		Channel:     m.Channel,
+	})
+
+	// Actually send the message
 	m.ReceivingNode.SendMessage(meshtastic.ToRadio_Packet{
 		Packet: &meshtastic.MeshPacket{
 			Id:       id,
 			Channel:  channelId,
-			To:       recipient,
-			From:     m.ToNode.Id,
+			To:       recipient.Id,
+			From:     m.ReceivingNode.Node.Id,
 			HopLimit: min(m.HopsAway+2, 7),
 			WantAck:  true,
 			Priority: meshtastic.MeshPacket_Priority(meshtastic.MeshPacket_Priority_value["RELIABLE"]),
@@ -199,22 +207,6 @@ func (m Message) String() string {
 	}
 
 	return fmt.Sprintf("%s: %s %s", direction, content, m.radioMetricsString())
-}
-
-func (m *Message) toReplyString(message string) string {
-	direction := ""
-	if m.ToNode != nil {
-		direction += m.ToNode.ColorString()
-	} else {
-		direction += "No node"
-	}
-	if m.FromNode != nil {
-		direction += " -> " + m.FromNode.ColorString()
-	} else {
-		direction += " -> No node"
-	}
-
-	return fmt.Sprintf("%s: %s", direction, message)
 }
 
 func (m *Message) radioMetricsString() string {

@@ -8,7 +8,10 @@ const (
 	DisconnectedEvent
 
 	// Message events
-	AnyMessageEvent
+	IncomingMessageEvent
+	OutgoingMessageEvent
+
+	// Specific message events
 	TextMessageEvent
 	NodeInfoEvent
 	PositionEvent

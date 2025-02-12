@@ -277,5 +277,5 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		log.Println("Warning: Unknown mesh packet:", meshPacket.String())
 	}
 
-	MessageEvents.publish(AnyMessageEvent, message)
+	MessageEvents.publish(IncomingMessageEvent, message)
 }

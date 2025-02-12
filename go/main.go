@@ -24,7 +24,8 @@ func main() {
 	config.InitConfig()
 	cfg := config.GetConfig()
 
-	m.MessageEvents.Subscribe(m.AnyMessageEvent, message)
+	m.MessageEvents.Subscribe(m.IncomingMessageEvent, incoming)
+	m.MessageEvents.Subscribe(m.OutgoingMessageEvent, outgoing)
 	m.ConnectionEvents.Subscribe(m.ConnectedEvent, connected)
 	m.ConnectionEvents.Subscribe(m.DisconnectedEvent, disconnected)
 
@@ -108,9 +109,13 @@ func disconnected(node m.ConnectedNode) {
 	log.Println("Disconnected from the node. Maybe some retry-logic here?")
 }
 
-func message(message m.Message) {
+func incoming(message m.Message) {
 	fmt.Println(message.String())
 	if bot != nil {
 		bot.HandleMessage(message)
 	}
+}
+
+func outgoing(message m.Message) {
+	fmt.Println(message.String())
 }
