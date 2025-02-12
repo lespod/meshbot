@@ -41,6 +41,7 @@ type Message struct {
 
 	MessageType        string
 	Text               string
+	Channel            *Channel
 	DeviceMetrics      *meshtastic.DeviceMetrics
 	EnvironmentMetrics *meshtastic.EnvironmentMetrics
 	HealthMetrics      *meshtastic.HealthMetrics
@@ -104,10 +105,22 @@ func (m *Message) sendTextMessage(message string) uint32 {
 	// stuff.
 	log.Println(m.toReplyString(message))
 
+	// If message was sent to a channel (and the config allows it), reply in the
+	// channel instead of privately.
+	recipient := m.FromNode.Id
+	if cfg.Settings.AllowTransmitToChannels && m.ToNode.Id == Broadcast.Id {
+		recipient = Broadcast.Id
+	}
+	channelId := uint32(0)
+	if m.Channel != nil {
+		channelId = m.Channel.id
+	}
+
 	m.ReceivingNode.SendMessage(meshtastic.ToRadio_Packet{
 		Packet: &meshtastic.MeshPacket{
 			Id:       id,
-			To:       m.FromNode.Id,
+			Channel:  channelId,
+			To:       recipient,
 			From:     m.ToNode.Id,
 			HopLimit: min(m.HopsAway+2, 7),
 			WantAck:  true,

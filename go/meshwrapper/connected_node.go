@@ -15,7 +15,7 @@ type ConnectedNode struct {
 	stream          io.ReadWriteCloser
 	Connected       bool
 	FirmwareVersion string
-	Channels        []channel
+	Channels        map[uint32]Channel
 	Node            *Node
 	NodeList        nodeList
 	Acks            map[uint32]chan bool
@@ -28,6 +28,7 @@ func NewConnectedNode(stream io.ReadWriteCloser) (*ConnectedNode, error) {
 		Connected: false,
 		NodeList:  NewNodeList(),
 		Acks:      make(map[uint32]chan bool),
+		Channels:  make(map[uint32]Channel),
 		Node: &Node{
 			ShortName: "UNKN",
 			LongName:  "Unknown node",
@@ -99,7 +100,8 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 		case *meshtastic.FromRadio_NodeInfo:
 			n.parseNodeInfo(packet.GetNodeInfo())
 		case *meshtastic.FromRadio_Channel:
-			n.Channels = append(n.Channels, NewChannel(packet.GetChannel()))
+			channel := NewChannel(packet.GetChannel())
+			n.Channels[channel.id] = channel
 		case *meshtastic.FromRadio_Packet:
 			n.parseMeshPacket(packet.GetPacket())
 		case *meshtastic.FromRadio_Config:
@@ -158,10 +160,13 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		fromNode.Snr = meshPacket.RxSnr
 	}
 
+	channel := n.Channels[meshPacket.Channel]
+
 	message := Message{
 		FromNode:      fromNode,
 		ToNode:        toNode,
 		ReceivingNode: n,
+		Channel:       &channel,
 		Timestamp:     time.Unix(int64(meshPacket.RxTime), 0),
 		MessageType:   MESSAGE_TYPE_OTHER,
 		Snr:           meshPacket.RxSnr,

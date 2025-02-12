@@ -6,23 +6,23 @@ import (
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
 )
 
-type channel struct {
-	id      int32
+type Channel struct {
+	id      uint32
 	name    string
 	passkey []byte
 }
 
-func NewChannel(unit *meshtastic.Channel) channel {
+func NewChannel(unit *meshtastic.Channel) Channel {
 	if unit == nil {
-		return channel{}
+		return Channel{}
 	}
-	return channel{
-		id:      unit.Index,
+	return Channel{
+		id:      uint32(unit.Index),
 		name:    unit.GetSettings().Name,
 		passkey: unit.GetSettings().Psk,
 	}
 }
 
-func (c channel) String() string {
+func (c Channel) String() string {
 	return fmt.Sprintf("[%d] %s", c.id, c.name)
 }

@@ -33,6 +33,7 @@ type Settings struct {
 	AllowSerial             bool   `json:"allow_serial"`
 	AllowTransmit           bool   `json:"allow_transmit"`
 	TransmitExceptionNodeId uint32 `json:"transmit_exception_node_id"`
+	AllowTransmitToChannels bool   `json:"allow_transmit_to_channels"`
 }
 
 var config Config

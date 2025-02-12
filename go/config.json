@@ -14,6 +14,7 @@
         "allow_tcp": true,
         "allow_serial": true,
         "allow_transmit": false,
-        "transmit_exception_node_id": 0
+        "transmit_exception_node_id": 0,
+        "allow_transmit_to_channels": false
     }
 }
