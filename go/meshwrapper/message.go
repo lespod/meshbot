@@ -159,8 +159,10 @@ func (m Message) GetType() string {
 }
 
 func (m Message) GetChannelName() string {
-	panic("TODO: implement")
-	// return ""
+	if m.Channel == nil {
+		return "UNKNOWN"
+	}
+	return m.Channel.name
 }
 
 func (m Message) GetSenderNode() meshbot.ChatUser {
