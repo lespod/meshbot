@@ -185,6 +185,9 @@ function NotifyUser(message)
     -- Do we have a message box at all? Otherwise we're spamming nodes that have
     -- never interacted with this bot, and have not actually been sent messages
     -- by real people, with a "friendly welcome message".
+    if message:getSender() == nil then
+        return
+    end
     local box = Bot.memory.read(message:getSender():getIdExpression())
     if box == nil then
         return
@@ -209,6 +212,9 @@ end
 -- Get a user's inbox, create one if necessary by adding a friendly little
 -- welcome message, and collect some stats about the inbox.
 function GetInbox(node)
+    if node == nil then
+        print("ERROR: Unknown node")
+    end
     local inbox = Bot.memory.read(node:getIdExpression())
 
     if inbox == nil then
@@ -251,7 +257,9 @@ function SendMessage(message, inbox, index, read)
     if msg.read == read then
         message:reply("🤖✉️ From " .. msg.sender .. " at " .. msg.timestamp .. "\n\n" .. msg.contents,
             function(success)
-                msg.read = success
+                if not msg.read then
+                    msg.read = success
+                end
                 if success then
                     SendMessage(message, inbox, index + 1, read)
                 else

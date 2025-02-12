@@ -49,10 +49,10 @@ func LoadPlugin(filename string, bot *Chatbot) (*plugin, error) {
 	if !ok {
 		return nil, errors.New("no plugin definition found in file " + filename)
 	}
-	return newPlugin(definition, L), nil
+	return newPlugin(definition, L)
 }
 
-func newPlugin(definition *lua.LTable, L *lua.LState) *plugin {
+func newPlugin(definition *lua.LTable, L *lua.LState) (*plugin, error) {
 	plugin := plugin{
 		Name:        definition.RawGetString("name").String(),
 		Description: definition.RawGetString("description").String(),
@@ -64,11 +64,22 @@ func newPlugin(definition *lua.LTable, L *lua.LState) *plugin {
 	}
 
 	commands := definition.RawGetString("commands")
+	errs := make([]error, 0)
 	if commands, ok := commands.(*lua.LTable); ok {
 		commands.ForEach(func(k, v lua.LValue) {
-			command := newCommand(v.(*lua.LTable), L)
-			plugin.Commands = append(plugin.Commands, command)
+			command, err := newCommand(v.(*lua.LTable), L)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				plugin.Commands = append(plugin.Commands, *command)
+			}
 		})
+	} else {
+		return nil, errors.New("can't have a plugin without commands")
+	}
+
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
 	states := definition.RawGetString("states")
@@ -78,10 +89,10 @@ func newPlugin(definition *lua.LTable, L *lua.LState) *plugin {
 		})
 	}
 
-	return &plugin
+	return &plugin, nil
 }
 
-func newCommand(definition *lua.LTable, L *lua.LState) command {
+func newCommand(definition *lua.LTable, L *lua.LState) (*command, error) {
 	state := definition.RawGetString("state").String()
 	if state == "nil" {
 		state = "MAIN"
@@ -90,6 +101,11 @@ func newCommand(definition *lua.LTable, L *lua.LState) command {
 	private := definition.RawGetString("private")
 	if private == lua.LNil {
 		private = lua.LTrue
+	}
+
+	luaFunction, ok := definition.RawGetString("func").(*lua.LFunction)
+	if !ok {
+		return nil, errors.New("can't have a command without a function")
 	}
 
 	command := command{
@@ -103,20 +119,16 @@ func newCommand(definition *lua.LTable, L *lua.LState) command {
 		IsCatchAllText: false,
 		Hidden:         lua.LVAsBool(definition.RawGetString("hidden")),
 		Function: func(message *ChatMessage) (State, error) {
-			function, ok := definition.RawGetString("func").(*lua.LFunction)
-			if !ok {
-				return "ERROR", nil
-			}
 			messageUserData := L.NewUserData()
 			messageUserData.Value = message
 			L.SetMetatable(messageUserData, L.GetTypeMetatable(luaMessageTypeName))
 			err := L.CallByParam(lua.P{
-				Fn:      function,
+				Fn:      luaFunction,
 				NRet:    1,
 				Protect: true,
 			}, messageUserData)
 			if err != nil {
-				return "ERROR", err
+				return "MAIN", err
 			}
 			ret := L.Get(-1)
 			L.Pop(1)
@@ -157,7 +169,7 @@ func newCommand(definition *lua.LTable, L *lua.LState) command {
 		}
 	}
 
-	return command
+	return &command, nil
 }
 
 func createLuaVM(cb *Chatbot) *lua.LState {

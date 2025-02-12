@@ -89,6 +89,10 @@ func messageGetSender(L *lua.LState) int {
 		return 1
 	}
 	node := message.GetSenderNode()
+	if node == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	userUserData := L.NewUserData()
 	userUserData.Value = &node
 	L.SetMetatable(userUserData, L.GetTypeMetatable(luaUserTypeName))
@@ -103,6 +107,10 @@ func messageGetReceiver(L *lua.LState) int {
 		return 1
 	}
 	node := message.GetReceiverNode()
+	if node == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
 	userUserData := L.NewUserData()
 	userUserData.Value = &node
 	L.SetMetatable(userUserData, L.GetTypeMetatable(luaUserTypeName))
