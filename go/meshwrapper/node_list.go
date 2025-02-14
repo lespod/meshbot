@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 type nodeList struct {
@@ -59,29 +60,30 @@ func (n *nodeList) sortedNodes() []Node {
 }
 
 func (n *nodeList) findNode(needle string) *Node {
+	needle = strings.TrimSpace(needle)
 	needleBytes := []byte(needle)
 
 	// Check if we have a specific, full hexadecimal id
 	fullHexId, _ := regexp.Compile("![0-9a-fA-F]{8}")
 	if fullHexId.Match(needleBytes) {
-		id, _ := strconv.ParseUint(needle[1:], 16, 32)
+		id, err := strconv.ParseUint(needle[1:], 16, 32)
 		node, ok := n.nodes[uint32(id)]
-		if ok {
+		if ok && err == nil {
 			return node
 		}
 	}
 	shortHexId, _ := regexp.Compile("[0-9a-fA-F]{8}")
 	if shortHexId.Match(needleBytes) {
-		id, _ := strconv.ParseUint(needle, 16, 32)
+		id, err := strconv.ParseUint(needle, 16, 32)
 		node, ok := n.nodes[uint32(id)]
-		if ok {
+		if ok && err == nil {
 			return node
 		}
 	}
 
 	// Check if we have a shortName
 	for _, node := range n.nodes {
-		if node.ShortName == needle {
+		if strings.EqualFold(node.ShortName, needle) {
 			return node
 		}
 	}
@@ -89,9 +91,9 @@ func (n *nodeList) findNode(needle string) *Node {
 	// Check if we have a decimal id
 	numericId, _ := regexp.Compile("[0-9]+")
 	if numericId.Match(needleBytes) {
-		id, _ := strconv.ParseUint(needle, 10, 32)
+		id, err := strconv.ParseUint(needle, 10, 32)
 		node, ok := n.nodes[uint32(id)]
-		if ok {
+		if ok && err == nil {
 			return node
 		}
 	}
@@ -99,9 +101,16 @@ func (n *nodeList) findNode(needle string) *Node {
 	// Check if we have an abbreviated hexadecimal id
 	abbreviatedHexId, _ := regexp.Compile("[0-9a-fA-F]{4}")
 	if abbreviatedHexId.Match(needleBytes) {
-		id, _ := strconv.ParseUint(needle, 16, 32)
-		node, ok := n.nodes[uint32(id)]
-		if ok {
+		for _, node := range n.nodes {
+			if strings.HasSuffix(node.GetIDExpression(), needle) {
+				return node
+			}
+		}
+	}
+
+	// Check is needle is a substring of a longname
+	for _, node := range n.nodes {
+		if strings.Contains(strings.ToUpper(node.LongName), strings.ToUpper(needle)) {
 			return node
 		}
 	}
