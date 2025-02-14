@@ -15,6 +15,7 @@ import (
 	"github.com/timendus/meshbot/config"
 	"github.com/timendus/meshbot/meshbot"
 	m "github.com/timendus/meshbot/meshwrapper"
+	"github.com/timendus/meshbot/meshwrapper/helpers"
 	"go.bug.st/serial"
 )
 
@@ -130,8 +131,12 @@ func incoming(message m.Message) {
 			return
 		}
 
-		message.Reply("I'm reading " + subject.String() + " with an SNR of " +
-			strconv.FormatFloat(float64(subject.GetSNR()), 'f', 2, 32))
+		if subject.HopsAway == 0 {
+			message.Reply("🤖📶 I'm reading " + subject.String() + " with an SNR of " +
+				strconv.FormatFloat(float64(subject.GetSNR()), 'f', 2, 32))
+		} else {
+			message.Reply("🤖📶 " + subject.String() + " is " + strconv.Itoa(int(subject.HopsAway)) + " " + helpers.Pluralize("hop", int(subject.HopsAway)) + " away")
+		}
 	}
 }
 
