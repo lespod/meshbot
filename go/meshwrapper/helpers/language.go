@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -53,6 +54,30 @@ func TimeAgo(timestamp time.Time) string {
 
 func BreakMessage(input string) []string {
 	const MAX_MESSAGE_LENGTH = 200
+	const MAX_LENGTH_WITH_PAGINATION = 200 - len(" [1/2]")
+	input = strings.TrimSpace(input)
+
+	// Don't try to cut up messages that fit
+	if len(input) <= MAX_MESSAGE_LENGTH {
+		return []string{input}
+	}
+
+	messages := BreakMessageAt(input, MAX_LENGTH_WITH_PAGINATION)
+	Assert(len(messages) < 1000, "What the hell are you doing creating so many messages..?")
+
+	// Add pagination info to each message
+	for i := range messages {
+		if len(messages) > 9 {
+			messages[i] += " [" + strconv.Itoa(i+1) + "]"
+		} else {
+			messages[i] += " [" + strconv.Itoa(i+1) + "/" + strconv.Itoa(len(messages)) + "]"
+		}
+	}
+
+	return messages
+}
+
+func BreakMessageAt(input string, maxlength int) []string {
 	input = strings.TrimSpace(input)
 	messages := make([]string, 0)
 	startPtr := 0
@@ -62,12 +87,13 @@ func BreakMessage(input string) []string {
 	for startPtr < len(input) {
 		// Find the next (rough) place where we need to cut the input to get it
 		// to fit in a message
-		charEnd := startPtr + MAX_MESSAGE_LENGTH
+		charEnd := startPtr + maxlength
 
 		if charEnd >= len(input) {
 			// We can fit the whole rest of the input in the message, in other
 			// words: we're done
-			return append(messages, input[startPtr:])
+			messages = append(messages, input[startPtr:])
+			break
 		}
 
 		// Find the "real" charEnd, that considers UTF-8 encoding
@@ -89,7 +115,7 @@ func BreakMessage(input string) []string {
 		}
 		nextLineLength := (nextLineEnd + charEnd) - (lineEnd + startPtr + 1)
 
-		if lineEnd != -1 && nextLineLength <= MAX_MESSAGE_LENGTH {
+		if lineEnd != -1 && nextLineLength <= maxlength {
 			endPtr = lineEnd + startPtr
 			resumePtr = endPtr + 1 // Skip the newline character
 		} else if wordEnd != -1 {
