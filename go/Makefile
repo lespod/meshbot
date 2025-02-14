@@ -14,3 +14,10 @@ test:
 
 lines:
 	@find . -name '*.go' | xargs wc -l
+
+build:
+	@GOOS=linux GOARCH=amd64 go build -o dist/linux/meshbot *.go
+	@GOOS=windows GOARCH=amd64 go build -o dist/windows/meshbot.exe *.go
+	@GOOS=linux GOARCH=arm64 go build -o dist/raspberry-pi/meshbot *.go
+	@GOOS=darwin GOARCH=amd64 go build -o dist/macos-intel/meshbot *.go
+	@GOOS=darwin GOARCH=arm64 go build -o dist/macos-apple-silicon/meshbot *.go
