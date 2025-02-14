@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/timendus/meshbot/config"
@@ -111,8 +112,26 @@ func disconnected(node m.ConnectedNode) {
 
 func incoming(message m.Message) {
 	fmt.Println(message.String())
-	if bot != nil {
-		bot.HandleMessage(message)
+	// if bot != nil {
+	// 	bot.HandleMessage(message)
+	// }
+
+	if message.MessageType == m.MESSAGE_TYPE_TEXT_MESSAGE && strings.HasPrefix(strings.ToUpper(message.Text), "/SIGNAL") {
+		input := strings.TrimSpace(message.Text)
+		subject := message.FromNode
+		ok := true
+		if len(input) > len("/SIGNAL") {
+			needle := input[len("/SIGNAL"):]
+			subject, ok = message.FindNode(needle).(*m.Node)
+		}
+
+		if !ok || subject == nil {
+			message.Reply("🤖🧨 I don't know who that is. Sorry!\n\nI need the short name (example: TDRP), or node ID (example: !87e35ac8) of a node that I know.")
+			return
+		}
+
+		message.Reply("I'm reading " + subject.String() + " with an SNR of " +
+			strconv.FormatFloat(float64(subject.GetSNR()), 'f', 2, 32))
 	}
 }
 
