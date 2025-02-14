@@ -80,8 +80,11 @@ func (m *Message) send(message string, timeout time.Duration) chan bool {
 	m.ReceivingNode.Acks[id] = ch
 	go func() {
 		time.Sleep(timeout)
-		ch <- false
-		delete(m.ReceivingNode.Acks, id)
+		if m.ReceivingNode.Acks[id] != nil {
+			ch <- false
+			close(ch)
+			delete(m.ReceivingNode.Acks, id)
+		}
 	}()
 	return ch
 }

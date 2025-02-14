@@ -263,6 +263,7 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 			messageId := meshPacket.GetDecoded().RequestId
 			if n.Acks[messageId] != nil {
 				n.Acks[messageId] <- true
+				close(n.Acks[messageId])
 				delete(n.Acks, messageId)
 			}
 		}
