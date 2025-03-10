@@ -21,3 +21,6 @@ build:
 	@GOOS=linux GOARCH=arm64 go build -o dist/raspberry-pi/meshbot *.go
 	@GOOS=darwin GOARCH=amd64 go build -o dist/macos-intel/meshbot *.go
 	@GOOS=darwin GOARCH=arm64 go build -o dist/macos-apple-silicon/meshbot *.go
+	@docker build --quiet -t timendus/meshbot:latest .
+	@mkdir -p dist/docker
+	@docker save timendus/meshbot:latest | gzip > dist/docker/meshbot.tar.gz
