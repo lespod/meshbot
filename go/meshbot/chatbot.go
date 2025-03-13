@@ -98,22 +98,26 @@ func (c *Chatbot) handleMessageIf(message ChatMessage, comp func(command, string
 	isPrivateMessage := message.IsPrivateMessage()
 	matchFound := false
 	for _, plugin := range c.plugins {
-		for _, command := range plugin.Commands {
-			validCommand := command.State == c.state &&
-				(command.Private == isPrivateMessage ||
-					command.Channel == !isPrivateMessage)
-			if validCommand && comp(command, message.GetText()) {
+		for _, cmd := range plugin.Commands {
+			validCommand := cmd.State == c.state &&
+				(cmd.Private == isPrivateMessage ||
+					cmd.Channel == !isPrivateMessage)
+			if validCommand && comp(cmd, message.GetText()) {
 				matchFound = true
-				newState, err := command.Function(&message)
-				if err != nil {
-					log.Println("We got an error while handling a message:", err)
-				} else {
-					c.state = newState
-				}
+				c.runFunction(cmd, message)
 			}
 		}
 	}
 	return matchFound
+}
+
+func (c *Chatbot) runFunction(cmd command, message ChatMessage) {
+	newState, err := cmd.Function(&message)
+	if err != nil {
+		log.Println("We got an error while handling a message:", err)
+	} else {
+		c.state = newState
+	}
 }
 
 func matches(command command, message string) bool {
