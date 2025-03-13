@@ -23,7 +23,11 @@ var bot *meshbot.Chatbot
 
 func main() {
 	log.Println("Starting Meshed Potatoes!")
-	config.InitConfig()
+	err := config.InitConfig()
+	if err != nil {
+		log.Println("Encountered issue reading config.json:")
+		log.Fatal(err)
+	}
 	cfg := config.GetConfig()
 
 	m.MessageEvents.Subscribe(m.IncomingMessageEvent, incoming)
@@ -70,7 +74,7 @@ func main() {
 
 	// Launch the chat bot
 	bot = meshbot.NewChatbot()
-	err := bot.ReloadPlugins()
+	err = bot.ReloadPlugins()
 	if err != nil {
 		log.Fatal(err)
 	}

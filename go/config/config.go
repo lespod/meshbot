@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"os"
 )
 
@@ -38,13 +37,16 @@ type Settings struct {
 
 var config Config
 
-func InitConfig() {
+func InitConfig() error {
 	configFile, err := os.Open("config.json")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	configBytes, _ := io.ReadAll(configFile)
-	json.Unmarshal(configBytes, &config)
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return err
+	}
 	for i, connection := range config.Connections {
 		if connection.Port == 0 {
 			config.Connections[i].Port = 4403
@@ -56,6 +58,7 @@ func InitConfig() {
 			config.Connections[i].ConnectionType = SERIAL_CONNECTION
 		}
 	}
+	return nil
 }
 
 func GetConfig() Config {
