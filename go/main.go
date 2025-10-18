@@ -20,8 +20,6 @@ import (
 	"go.bug.st/serial"
 )
 
-// var bot *meshbot.Chatbot
-
 func main() {
 	log.Println("Starting Meshed Potatoes!")
 	err := config.InitConfig()
@@ -79,13 +77,6 @@ func main() {
 		}
 		defer node.Close()
 	}
-
-	// Launch the chat bot
-	// bot = meshbot.NewChatbot()
-	// err = bot.ReloadPlugins()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 
 	// Endless loop to keep the program from ending
 	for {
@@ -156,9 +147,6 @@ func disconnected(node m.ConnectedNode) {
 
 func incoming(message m.Message) {
 	fmt.Println(message.String())
-	// if bot != nil {
-	// 	bot.HandleMessage(message)
-	// }
 
 	if message.MessageType == m.MESSAGE_TYPE_TEXT_MESSAGE {
 		command := strings.ToUpper(message.Text)
