@@ -15,8 +15,10 @@ const (
 )
 
 type Config struct {
-	Connections []Connection `json:"connections"`
-	Settings    Settings     `json:"settings"`
+	Connections   []Connection   `json:"connections"`
+	Settings      Settings       `json:"settings"`
+	Rooms         []Room         `json:"rooms"`
+	Announcements []Announcement `json:"announcements"`
 }
 
 type Connection struct {
@@ -33,6 +35,18 @@ type Settings struct {
 	AllowTransmit           bool   `json:"allow_transmit"`
 	TransmitExceptionNodeId uint32 `json:"transmit_exception_node_id"`
 	AllowTransmitToChannels bool   `json:"allow_transmit_to_channels"`
+}
+
+type Room struct {
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+type Announcement struct {
+	Message      string `json:"message"`
+	Channel      uint32 `json:"channel"`
+	DelayMinutes uint32 `json:"delayMinutes"`
+	MaxHops      uint32 `json:"maxHops"`
 }
 
 var config Config
@@ -56,6 +70,11 @@ func InitConfig() error {
 		}
 		if connection.SerialDevice != "" {
 			config.Connections[i].ConnectionType = SERIAL_CONNECTION
+		}
+	}
+	for i, announcement := range config.Announcements {
+		if announcement.DelayMinutes == 0 {
+			config.Announcements[i].DelayMinutes = 1440 // Default to once per day
 		}
 	}
 	return nil

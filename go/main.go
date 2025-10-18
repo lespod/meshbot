@@ -16,10 +16,11 @@ import (
 	"github.com/timendus/meshbot/meshbot"
 	m "github.com/timendus/meshbot/meshwrapper"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
+	"github.com/timendus/meshbot/roomserver"
 	"go.bug.st/serial"
 )
 
-var bot *meshbot.Chatbot
+// var bot *meshbot.Chatbot
 
 func main() {
 	log.Println("Starting Meshed Potatoes!")
@@ -29,6 +30,7 @@ func main() {
 		log.Fatal(err)
 	}
 	cfg := config.GetConfig()
+	roomserver.Init(cfg)
 
 	m.MessageEvents.Subscribe(m.IncomingMessageEvent, incoming)
 	m.MessageEvents.Subscribe(m.OutgoingMessageEvent, outgoing)
@@ -73,11 +75,11 @@ func main() {
 	}
 
 	// Launch the chat bot
-	bot = meshbot.NewChatbot()
-	err = bot.ReloadPlugins()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// bot = meshbot.NewChatbot()
+	// err = bot.ReloadPlugins()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Endless loop to keep the program from ending
 	for {
@@ -102,6 +104,8 @@ func getSerialDevices() ([]string, error) {
 	return ports, err
 }
 
+var announcersRunning bool
+
 func connected(node m.ConnectedNode) {
 	log.Println("Connected to " + node.String())
 	// log.Println("Node list: \n" + node.NodeList.String())
@@ -109,6 +113,23 @@ func connected(node m.ConnectedNode) {
 	// for _, channel := range node.Channels {
 	// 	log.Println("   " + channel.String())
 	// }
+
+	// Start announcer service(s)
+	if !announcersRunning {
+		for _, announcement := range config.GetConfig().Announcements {
+			go func() {
+				for {
+					log.Println("Announcer: broadcasting to channel", announcement.Channel, "-", announcement.Message)
+					_, err := node.SendMessage(announcement.Channel, &m.Broadcast, announcement.Message, announcement.MaxHops)
+					if err != nil {
+						log.Println("Could not announce:", err)
+					}
+					time.Sleep(time.Duration(announcement.DelayMinutes) * time.Minute)
+				}
+			}()
+		}
+		announcersRunning = true
+	}
 }
 
 func disconnected(node m.ConnectedNode) {
@@ -121,25 +142,180 @@ func incoming(message m.Message) {
 	// 	bot.HandleMessage(message)
 	// }
 
-	if message.MessageType == m.MESSAGE_TYPE_TEXT_MESSAGE && strings.HasPrefix(strings.ToUpper(message.Text), "/SIGNAL") {
-		input := strings.TrimSpace(message.Text)
-		subject := message.FromNode
-		ok := true
-		if len(input) > len("/SIGNAL") {
-			needle := input[len("/SIGNAL"):]
-			subject, ok = message.FindNode(needle).(*m.Node)
-		}
+	if message.MessageType == m.MESSAGE_TYPE_TEXT_MESSAGE {
+		command := strings.ToUpper(message.Text)
 
-		if !ok || subject == nil {
-			message.Reply("🤖🧨 I don't know who that is. Sorry!\n\nI need the short name (example: TDRP), or node ID (example: !87e35ac8) of a node that I know.")
+		if strings.HasPrefix(command, "/HELP") || strings.HasPrefix(command, "/ABOUT") {
+			<-message.Reply(
+				`🤖👋 Hello! I'm your friendly neighbourhood roomserver bot. I understand these commands:
+
+ - /rooms
+ - /join <room name> <optional password>
+ - /leave <room name>`)
+			message.Reply(
+				`Bonus features:
+
+ - /neighbours
+ - /signal <optional node>
+ - /weather
+ - /forecast`)
 			return
 		}
 
-		if subject.HopsAway == 0 {
-			message.Reply("🤖📶 I'm reading " + subject.String() + " with an SNR of " +
-				strconv.FormatFloat(float64(subject.GetSNR()), 'f', 2, 32))
-		} else {
-			message.Reply("🤖📶 " + subject.String() + " is " + strconv.Itoa(int(subject.HopsAway)) + " " + helpers.Pluralize("hop", int(subject.HopsAway)) + " away")
+		if strings.HasPrefix(command, "/SIGNAL") {
+			input := strings.TrimSpace(message.Text)
+			subject := message.FromNode
+			ok := true
+			if len(input) > len("/SIGNAL") {
+				needle := input[len("/SIGNAL"):]
+				subject, ok = message.FindNode(needle).(*m.Node)
+			}
+
+			if !ok || subject == nil {
+				message.Reply("🤖🧨 I don't know who that is. Sorry!\n\nI need the short name (example: TDRP), node ID (example: !87e35ac8) or part of the long name of a node that I know.")
+				return
+			}
+
+			if subject.HopsAway == 0 {
+				message.Reply("🤖📶 I last heard " + subject.String() + " " + helpers.TimeAgo(subject.LastHeard) + " ago with an SNR of " +
+					strconv.FormatFloat(float64(subject.GetSNR()), 'f', 2, 32))
+			} else {
+				message.Reply("🤖📶 " + subject.String() + " is " + strconv.Itoa(int(subject.HopsAway)) + " " + helpers.Pluralize("hop", int(subject.HopsAway)) + " away")
+			}
+			return
+		}
+
+		if strings.HasPrefix(command, "/NEIGHBOURS") {
+			message.Reply("🤖👂 These are the nodes I've heard in the last hour:\n\n" + message.ReceivingNode.NodeList.Neighbours())
+			return
+		}
+
+		if strings.HasPrefix(command, "/WEATHER") {
+			var text string
+			var pos [3]float32
+			if message.FromNode != nil {
+				pos = message.FromNode.GetPosition()
+				text = "Here's the current weather at your location:"
+			}
+			if message.FromNode == nil || pos[0] == 0 || pos[1] == 0 {
+				pos = message.ToNode.GetPosition()
+				text = "I can't see your location, so I'll give you the current weather at my location:"
+			}
+			if pos[0] == 0 || pos[1] == 0 {
+				message.Reply("🤖🧨 I'm sorry! I can't give you a weather report, because I don't know the location of either of us.")
+				return
+			}
+			weather, err := meshbot.FetchWeather(meshbot.Position{
+				Latitude:  float64(pos[0]),
+				Longitude: float64(pos[1]),
+			})
+			if err != nil {
+				message.Reply("🤖🌂 I can't get a weather report at this time.")
+			} else {
+				ok := <-message.Reply("🤖🌂 " + text + "\n\n" + weather)
+				if !ok {
+					log.Println("Could not send the full weather message :/")
+				}
+			}
+			return
+		}
+
+		if strings.HasPrefix(command, "/FORECAST") {
+			var text string
+			var pos [3]float32
+			if message.FromNode != nil {
+				pos = message.FromNode.GetPosition()
+				text = "Here's the weather forecast at your location:"
+			}
+			if message.FromNode == nil || pos[0] == 0 || pos[1] == 0 {
+				pos = message.ToNode.GetPosition()
+				text = "I can't see your location, so I'll give you the weather forecast at my location:"
+			}
+			if pos[0] == 0 || pos[1] == 0 {
+				message.Reply("🤖🧨 I'm sorry! I can't give you a weather forecast, because I don't know the location of either of us.")
+				return
+			}
+			forecast, err := meshbot.FetchForecast(meshbot.Position{
+				Latitude:  float64(pos[0]),
+				Longitude: float64(pos[1]),
+			})
+			if err != nil {
+				message.Reply("🤖🌂 I can't get a weather forecast at this time.")
+			} else {
+				ok := <-message.Reply("🤖🌂 " + text + "\n\n" + forecast)
+				if !ok {
+					log.Println("Could not send the full weather message :/")
+				}
+			}
+			return
+		}
+
+		// We've fallen through the generic queries, roomserver code starts here
+
+		// Make sure we don't spam channels
+		if !message.IsPrivateMessage() {
+			return
+		}
+
+		// Find our user
+		user := roomserver.GetUser(message)
+
+		if strings.HasPrefix(command, "/ROOMS") {
+			message.Reply(
+				`🤖💬 These are the available rooms: 
+
+` + roomserver.RoomList(user) + `
+Join by sending /join <room name> <optional password>
+Leave by sending /leave <room name>`)
+			return
+		}
+
+		if strings.HasPrefix(command, "/JOIN") {
+			params := strings.Split(strings.TrimSpace(message.Text[len("/JOIN"):]), " ")
+			if len(params) == 0 {
+				message.Reply("🤖🧨 You need to specify the name of a room to join")
+				return
+			}
+			roomName := params[0]
+			password := ""
+			if len(params) > 1 {
+				password = params[1]
+			}
+			err := roomserver.Join(user, roomName, password)
+			if err != nil {
+				message.Reply("🤖💬 " + err.Error())
+				return
+			}
+			message.Reply("🤖💬 You joined " + roomName)
+			return
+		}
+
+		if strings.HasPrefix(command, "/LEAVE") {
+			params := strings.Split(strings.TrimSpace(message.Text[len("/LEAVE"):]), " ")
+			if len(params) == 0 {
+				message.Reply("🤖🧨 You need to specify the name of a room to leave")
+				return
+			}
+			roomName := params[0]
+			err := roomserver.Leave(user, roomName)
+			if err != nil {
+				message.Reply("🤖🧨 " + err.Error())
+				return
+			}
+			message.Reply("🤖💬 You left " + roomName)
+			return
+		}
+
+		// Handle freeform messages to a room
+		msg := strings.TrimSpace(message.Text)
+		if len(msg) == 0 {
+			return
+		}
+		err := roomserver.Send(user, msg)
+		if err != nil {
+			<-message.Reply("🤖💬 " + err.Error())
+			message.Reply("Send /rooms to see available rooms\nSend /help to see all commands")
+			return
 		}
 	}
 }

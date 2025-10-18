@@ -2,10 +2,14 @@ package meshwrapper
 
 import (
 	"cmp"
+	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/timendus/meshbot/meshwrapper/helpers"
 )
 
 type nodeList struct {
@@ -40,6 +44,25 @@ func (n *nodeList) String() string {
 	for _, node := range n.sortedNodes() {
 		if node.Id != Broadcast.Id && node.Id != Unknown.Id {
 			nodes += node.VerboseString() + "\n"
+		}
+	}
+	return nodes
+}
+
+func (n *nodeList) Neighbours() string {
+	nodes := ""
+	for _, node := range n.sortedNodes() {
+		nodeIsValid := node.Id != Broadcast.Id && node.Id != Unknown.Id
+		nodeIsNeighbour := node.HopsAway == 0
+		nodeHeardInLastHour := int(time.Since(node.LastHeard).Seconds()) < 3600
+
+		if nodeIsValid && nodeIsNeighbour && nodeHeardInLastHour && !node.IsSelf() {
+			nodes += " - " + node.String()
+			nodes += fmt.Sprintf(" - %s ago", helpers.TimeAgo(node.LastHeard))
+			if node.Snr != 0 {
+				nodes += fmt.Sprintf(", %.2fdB", node.Snr)
+			}
+			nodes += "\n"
 		}
 	}
 	return nodes

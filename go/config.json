@@ -16,5 +16,23 @@
         "allow_transmit": false,
         "transmit_exception_node_id": 0,
         "allow_transmit_to_channels": false
-    }
+    },
+    "rooms": [
+        {
+            "name": "General",
+            "password": null
+        },
+        {
+            "name": "Private",
+            "password": "SuperSecret"
+        }
+    ],
+    "announcements": [
+        {
+            "message": "🤖👋 Welcome to our mesh!",
+            "channel": 0,
+            "delayMinutes": 1440,
+            "maxHops": 1
+        }
+    ]
 }

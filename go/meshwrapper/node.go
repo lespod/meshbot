@@ -23,6 +23,7 @@ type Node struct {
 	Connected        bool
 	PublicKey        []byte
 	Neighbors        NeighborList
+	Position         *Position
 }
 
 func NewNode(info *meshtastic.NodeInfo) *Node {
@@ -60,6 +61,7 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 			MessageType:   MESSAGE_TYPE_POSITION,
 			Position:      NewPosition(info.Position),
 		})
+		n.Position = NewPosition(info.Position)
 	}
 
 	if info.DeviceMetrics != nil {
@@ -171,7 +173,14 @@ func (n *Node) VerboseString() string {
 }
 
 func (n *Node) GetPosition() [3]float32 {
-	panic("TODO: implement")
+	if n.Position == nil {
+		return [3]float32{0, 0, 0}
+	}
+	return [3]float32{
+		n.Position.latitude,
+		n.Position.longitude,
+		float32(n.Position.altitude),
+	}
 }
 
 func (n *Node) GetHopsAway() int {

@@ -6,13 +6,13 @@ import (
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
 )
 
-type position struct {
+type Position struct {
 	latitude  float32
 	longitude float32
 	altitude  int32
 }
 
-func NewPosition(pos *meshtastic.Position) *position {
+func NewPosition(pos *meshtastic.Position) *Position {
 	if pos == nil {
 		return nil
 	}
@@ -31,7 +31,7 @@ func NewPosition(pos *meshtastic.Position) *position {
 	if latI == 0 && lonI == 0 && alt == 0 {
 		return nil
 	}
-	return &position{
+	return &Position{
 		latitude:  float32(latI / math.Pow(10, 7)),
 		longitude: float32(lonI / math.Pow(10, 7)),
 		altitude:  alt,
