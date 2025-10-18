@@ -32,19 +32,13 @@ COPY --from=build /app/output /app
 # host directory if not yet present
 COPY ./config.json /app/default-config/config.json
 COPY ./wmo_codes.json /app/wmo_codes.json
-COPY ./plugins /app/default-config/plugins
 RUN cat >./run-meshbot.sh <<EOF
 #!/bin/sh
 if [ ! -f "/app/config/config.json" ]; then
     echo "Copying default config"
     cp /app/default-config/config.json /app/config/config.json
 fi
-if [ ! -d "/app/config/plugins" ]; then
-    echo "Copying default plugins"
-    cp -R /app/default-config/plugins /app/config/
-fi
 ln -sfn /app/config/config.json /app/config.json
-ln -sfn /app/config/plugins /app/plugins
 ./meshbot
 EOF
 RUN chmod +x ./run-meshbot.sh
