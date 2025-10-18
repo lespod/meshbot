@@ -40,7 +40,6 @@ func main() {
 	// Connect to the meshtastic devices mentioned in the configuration file
 	for _, connection := range cfg.Connections {
 		var node *m.ConnectedNode
-		var port io.ReadWriteCloser
 		var err error
 
 		switch connection.ConnectionType {
@@ -48,26 +47,33 @@ func main() {
 			if !cfg.Settings.AllowSerial {
 				log.Fatal("Serial connection configured, but not allowed by settings")
 			}
-			port, err = serial.Open(connection.SerialDevice, &serial.Mode{
-				BaudRate: 115200,
+			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
+				stream, err := serial.Open(connection.SerialDevice, &serial.Mode{
+					BaudRate: 115200,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("Could not open serial connection to '"+connection.SerialDevice+"': ", err)
+				}
+				return stream, nil
 			})
-			if err != nil {
-				log.Fatal("Could not open serial connection to '"+connection.SerialDevice+"': ", err)
-			}
+
 		case config.TCP_CONNECTION:
 			if !cfg.Settings.AllowTCP {
 				log.Fatal("TCP connection configured, but not allowed by settings")
 			}
-			port, err = net.Dial("tcp", connection.Hostname+":"+strconv.Itoa(connection.Port))
-			if err != nil {
-				log.Fatal("Could not open TCP connection to '"+connection.Hostname+":"+strconv.Itoa(connection.Port)+"': ", err)
-			}
+			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
+				stream, err := net.Dial("tcp", connection.Hostname+":"+strconv.Itoa(connection.Port))
+				if err != nil {
+					return nil, fmt.Errorf("Could not open TCP connection to '"+connection.Hostname+":"+strconv.Itoa(connection.Port)+"': ", err)
+				}
+				return stream, nil
+			})
 
 		default:
 			log.Fatal("Invalid connection type!")
 		}
 
-		node, err = m.NewConnectedNode(port)
+		err = node.Connect()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -133,7 +139,19 @@ func connected(node m.ConnectedNode) {
 }
 
 func disconnected(node m.ConnectedNode) {
-	log.Println("Disconnected from the node. Maybe some retry-logic here?")
+	log.Println("Disconnected from the node")
+	backoff := 1 * time.Second
+	for !node.Connected {
+		log.Println("Attemping to reconnect to the node...")
+		err := node.Connect()
+		if err == nil {
+			log.Println("Succesfully reconnected to the node!")
+			break
+		}
+		log.Println("Could not connect, backing off exponentially...", err)
+		time.Sleep(backoff)
+		backoff *= 2
+	}
 }
 
 func incoming(message m.Message) {

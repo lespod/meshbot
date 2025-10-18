@@ -1,17 +1,21 @@
 package meshwrapper
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"strconv"
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/timendus/meshbot/config"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 	"google.golang.org/protobuf/proto"
 )
 
 type ConnectedNode struct {
+	aquireStream    func() (io.ReadWriteCloser, error)
 	stream          io.ReadWriteCloser
 	Connected       bool
 	FirmwareVersion string
@@ -21,14 +25,13 @@ type ConnectedNode struct {
 	Acks            map[uint32]chan bool
 }
 
-func NewConnectedNode(stream io.ReadWriteCloser) (*ConnectedNode, error) {
-	// Create the new connected node
-	newNode := ConnectedNode{
-		stream:    stream,
-		Connected: false,
-		NodeList:  NewNodeList(),
-		Acks:      make(map[uint32]chan bool),
-		Channels:  make(map[uint32]Channel),
+func NewConnectedNode(aquire func() (io.ReadWriteCloser, error)) *ConnectedNode {
+	return &ConnectedNode{
+		aquireStream: aquire,
+		Connected:    false,
+		NodeList:     NewNodeList(),
+		Acks:         make(map[uint32]chan bool),
+		Channels:     make(map[uint32]Channel),
 		Node: &Node{
 			ShortName: "UNKN",
 			LongName:  "Unknown node",
@@ -36,25 +39,33 @@ func NewConnectedNode(stream io.ReadWriteCloser) (*ConnectedNode, error) {
 			Connected: true,
 		},
 	}
+}
+
+func (n *ConnectedNode) Connect() error {
+	// Connect to the actual device
+	stream, err := n.aquireStream()
+	if err != nil {
+		return err
+	}
+	n.stream = stream
 
 	// Spin up a goroutine to read messages from the device
-	go newNode.readMessages(stream)
+	go n.readMessages(n.stream)
 
 	// Wake the device
-	if err := wakeDevice(stream); err != nil {
-		return nil, err
+	if err := wakeDevice(n.stream); err != nil {
+		return err
 	}
 
 	// Tell the device that we can speak ProtoBuf
-	if err := writeMessage(stream, &meshtastic.ToRadio{
+	if err := writeMessage(n.stream, &meshtastic.ToRadio{
 		PayloadVariant: &meshtastic.ToRadio_WantConfigId{
 			WantConfigId: 1,
 		},
 	}); err != nil {
-		return nil, err
+		return err
 	}
-
-	return &newNode, nil
+	return nil
 }
 
 func (n *ConnectedNode) Close() error {
@@ -67,7 +78,44 @@ func (n *ConnectedNode) String() string {
 	return n.Node.ColorString()
 }
 
-func (n *ConnectedNode) SendMessage(message meshtastic.ToRadio_Packet) error {
+func (n *ConnectedNode) SendMessage(channel uint32, recipient *Node, message string, hopLimit uint32) (uint32, error) {
+	id := rand.Uint32()
+	err := n.SendPacket(meshtastic.ToRadio_Packet{
+		Packet: &meshtastic.MeshPacket{
+			Id:       id,
+			Channel:  channel,
+			To:       recipient.Id,
+			From:     n.Node.Id,
+			HopLimit: hopLimit,
+			WantAck:  true,
+			Priority: meshtastic.MeshPacket_Priority(meshtastic.MeshPacket_Priority_value["RELIABLE"]),
+			PayloadVariant: &meshtastic.MeshPacket_Decoded{
+				Decoded: &meshtastic.Data{
+					Portnum: meshtastic.PortNum_TEXT_MESSAGE_APP,
+					Payload: []byte(message),
+				},
+			},
+		},
+	})
+	return id, err
+}
+
+func (n *ConnectedNode) SendPacket(message meshtastic.ToRadio_Packet) error {
+	// Only transmit anything if the configuration allows it or the
+	// configuration has this particular node id as the exception. Otherwise,
+	// just silently drop the transmission.
+	cfg := config.GetConfig()
+	nodeAllowed := cfg.Settings.TransmitExceptionNodeId != 0 && message.Packet.To == cfg.Settings.TransmitExceptionNodeId
+	if !(cfg.Settings.AllowTransmit || nodeAllowed) {
+		return fmt.Errorf("not allowed to transmit by config.json")
+	}
+
+	// If message is a message in a channel, but the configuration does not
+	// allow this, again just drop the transmission
+	if !cfg.Settings.AllowTransmitToChannels && message.Packet.To == Broadcast.Id {
+		return fmt.Errorf("not allowed to transmit in a channel by config.json")
+	}
+
 	if err := writeMessage(n.stream, &meshtastic.ToRadio{
 		PayloadVariant: &message,
 	}); err != nil {
@@ -260,9 +308,18 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 
 	case meshtastic.PortNum_ROUTING_APP:
 		if meshPacket.GetDecoded() != nil {
+			result := meshtastic.Routing{}
+			err := proto.Unmarshal(payload, &result)
+			if err != nil {
+				log.Println("Error: Could not unmarshall Routing mesh packet: " + err.Error())
+				return
+			}
+			if result.GetErrorReason() != meshtastic.Routing_NONE {
+				log.Println("Bad acknowledgement: " + meshtastic.Routing_Error_name[int32(result.GetErrorReason())])
+			}
 			messageId := meshPacket.GetDecoded().RequestId
 			if n.Acks[messageId] != nil {
-				n.Acks[messageId] <- true
+				n.Acks[messageId] <- result.GetErrorReason() == meshtastic.Routing_NONE
 				close(n.Acks[messageId])
 				delete(n.Acks, messageId)
 			}

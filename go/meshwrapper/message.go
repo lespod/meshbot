@@ -2,11 +2,10 @@ package meshwrapper
 
 import (
 	"fmt"
-	"math/rand/v2"
+	"log"
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
-	"github.com/timendus/meshbot/config"
 	"github.com/timendus/meshbot/meshbot"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 )
@@ -48,7 +47,7 @@ type Message struct {
 	PowerMetrics       *meshtastic.PowerMetrics
 	LocalStats         *meshtastic.LocalStats
 	NeighborInfo       *meshtastic.NeighborInfo
-	Position           *position
+	Position           *Position
 }
 
 func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
@@ -76,7 +75,13 @@ func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
 
 func (m *Message) send(message string, timeout time.Duration) chan bool {
 	ch := make(chan bool)
-	id := m.sendTextMessage(message)
+	id, err := m.sendTextMessage(message)
+	if err != nil {
+		log.Println("Could not send message:", err)
+		ch <- false
+		close(ch)
+		return ch
+	}
 	m.ReceivingNode.Acks[id] = ch
 	go func() {
 		time.Sleep(timeout)
@@ -89,26 +94,15 @@ func (m *Message) send(message string, timeout time.Duration) chan bool {
 	return ch
 }
 
-func (m *Message) sendTextMessage(message string) uint32 {
+func (m *Message) sendTextMessage(message string) (uint32, error) {
 	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
 	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
 	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
 
-	id := rand.Uint32()
-
-	// Only transmit anything if the configuration allows it or the
-	// configuration has this particular node id as the exception. Otherwise,
-	// just silently drop the transmission.
-	cfg := config.GetConfig()
-	nodeAllowed := cfg.Settings.TransmitExceptionNodeId != 0 && m.FromNode.Id == cfg.Settings.TransmitExceptionNodeId
-	if !(cfg.Settings.AllowTransmit || nodeAllowed) {
-		return id
-	}
-
-	// If message was sent to a channel (and the config allows it), reply in the
-	// same channel instead of privately.
+	// If message was sent to a channel, reply in the same channel instead of
+	// privately.
 	recipient := m.FromNode
-	if cfg.Settings.AllowTransmitToChannels && m.ToNode.Id == Broadcast.Id {
+	if m.ToNode.Id == Broadcast.Id {
 		recipient = &Broadcast
 	}
 	channelId := uint32(0)
@@ -117,34 +111,18 @@ func (m *Message) sendTextMessage(message string) uint32 {
 	}
 
 	// Notify the rest of the system that we're sending this message
-	MessageEvents.publish(OutgoingMessageEvent, Message{
+	msg := Message{
 		FromNode:    m.ReceivingNode.Node,
 		ToNode:      recipient,
 		Text:        message,
 		MessageType: MESSAGE_TYPE_TEXT_MESSAGE,
 		Timestamp:   time.Now(),
 		Channel:     m.Channel,
-	})
+	}
+	MessageEvents.publish(OutgoingMessageEvent, msg)
 
 	// Actually send the message
-	m.ReceivingNode.SendMessage(meshtastic.ToRadio_Packet{
-		Packet: &meshtastic.MeshPacket{
-			Id:       id,
-			Channel:  channelId,
-			To:       recipient.Id,
-			From:     m.ReceivingNode.Node.Id,
-			HopLimit: min(m.HopsAway+2, 7),
-			WantAck:  true,
-			Priority: meshtastic.MeshPacket_Priority(meshtastic.MeshPacket_Priority_value["RELIABLE"]),
-			PayloadVariant: &meshtastic.MeshPacket_Decoded{
-				Decoded: &meshtastic.Data{
-					Portnum: meshtastic.PortNum_TEXT_MESSAGE_APP,
-					Payload: []byte(message),
-				},
-			},
-		},
-	})
-	return id
+	return m.ReceivingNode.SendMessage(channelId, recipient, message, min(m.HopsAway+2, 7))
 }
 
 // Implement meshbot.ChatMessage interface
