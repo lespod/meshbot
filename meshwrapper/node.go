@@ -91,8 +91,6 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 	}
 }
 
-// Implement meshbot.ChatUser interface
-
 func (n *Node) GetId() int {
 	return int(n.Id)
 }

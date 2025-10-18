@@ -174,7 +174,7 @@ func incoming(message m.Message) {
 			ok := true
 			if len(input) > len("/SIGNAL") {
 				needle := input[len("/SIGNAL"):]
-				subject, ok = message.FindNode(needle).(*m.Node)
+				subject = message.FindNode(needle)
 			}
 
 			if !ok || subject == nil {

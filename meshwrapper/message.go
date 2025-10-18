@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
-	"github.com/timendus/meshbot/meshbot"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 )
 
@@ -125,8 +124,6 @@ func (m *Message) sendTextMessage(message string) (uint32, error) {
 	return m.ReceivingNode.SendMessage(channelId, recipient, message, min(m.HopsAway+2, 7))
 }
 
-// Implement meshbot.ChatMessage interface
-
 func (m Message) GetText() string {
 	return m.Text
 }
@@ -146,15 +143,15 @@ func (m Message) GetChannelName() string {
 	return m.Channel.name
 }
 
-func (m Message) GetSenderNode() meshbot.ChatUser {
+func (m Message) GetSenderNode() *Node {
 	return m.FromNode
 }
 
-func (m Message) GetReceiverNode() meshbot.ChatUser {
+func (m Message) GetReceiverNode() *Node {
 	return m.ToNode
 }
 
-func (m Message) FindNode(needle string) meshbot.ChatUser {
+func (m Message) FindNode(needle string) *Node {
 	if m.ReceivingNode == nil {
 		return nil
 	}
