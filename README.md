@@ -1,54 +1,111 @@
+> This version of Meshbot is a rewrite in Go. If for some weird reason you
+> **really** need the broken old Python version, I have saved that in the
+> [branch
+> legacy-version-in-python](https://github.com/Timendus/meshbot/tree/legacy-version-in-python).
+
 # Meshbot
 
 A simple bot for use with Meshtastic. I know the name isn't very original 😄
 
 Some people would probably call this a "BBS", but personally I think it has more
-in common with something like a Slack / Telegram / Discord bot.
+in common with a crossover between a Slack / Telegram / Discord bot and a
+MeshCore room server.
 
 ## Current features
 
-- Mail box / message box for communicating with other Mestastic users. These
-  commands only work in direct messages with the bot, not in channels for
-  obvious reasons.
-- Ask the bot for signal reports, nodes it currently sees and nodes it has seen.
-- Ask the bot for weather reports and forecasts in your area from
-  [open-meteo.com](https://open-meteo.com/)
-- Talk to a self-hosted LLM using [Ollama](https://ollama.com/).
+- "Room server" that supports multiple rooms with subscriptions and
+  semi-reliable message delivery ([see
+  below](#why-rooms-are-more-reliable-than-channels) how we do that)
+- Signal reports and neighbours can be queried
+- Weather reports and forecasts can be queried, using
+  [open-meteo.com](https://open-meteo.com/) (requires the bot to have an
+  Internet connection)
+- Programmable regular announcements to channels for service messages in your
+  area
 
-Some of these things are being demonstrated in this screenshot:
+## Usage on the mesh
 
-![A screenshot of the Meshtastic app in a conversation with
-Meshbot](./screenshot.jpeg)
+As a user of Meshbot, you can send these commands and Meshbot will reply.
+Commands are not case-sensitive.
 
-## Setup
+### Either in a channel or as a direct message
 
-You will need a Meshtastic node and a computer to host the bot.
+- `/about` or `/help` - Get a short overview of these commands
+- `/signal <optional node>` - Fetch a signal report on yourself (default) or the
+  node you ask for
+- `/neighbours` - Fetch the list of neighbours that the bot can see over LoRa
+- `/weather` - Fetch a report of the current weather conditions
+- `/forecast` - Fetch a weather forecast for the coming days
 
-- For the node: this software is being developed using a Heltec v3, but I
-  suppose any Meshtastic node should work well.
+### As direct messages only
 
-- For the computer you can just use your laptop or desktop, but for a slightly
-  more permanent setup you may want to use a dedicated server. A NAS, an old
-  computer or even an old Raspberry Pi works great for the bot.
+- `/rooms` - Fetch a list of available rooms and your status in them
+- `/join <room name> <optional password>` - Join a room, so you will receive
+  messages sent to it. Supply a password for private rooms
+- `/leave <room name>` - Leave a room, so you will no longer receive messages
+  sent to it
 
-- To use the LLM feature you will need to run Ollama, which requires a bit more
-  horse power or preferably a good GPU. This feature is optional though, and it
-  is also entirely possible to run the bot on one machine and Ollama on another.
+For any other DM you send to the bot:
 
-The node and the host can either be connected through a USB cable, or [trough
-your network over wifi or
-ethernet](https://meshtastic.org/docs/configuration/radio/network/). The former
-can be super mobile and does not depend on your local network being up. The
-latter allows you the luxury of having your node in the best possible spot for
-reception, while the bot is running wherever you happen to have compute.
+- If you have not joined any rooms, and a public room exists (one without a
+  password), it will add you to this room automatically.
+- If you have joined one room, any DM you send to the bot will be sent to all
+  users in that room.
+- If you have joined multiple rooms, prefix your message with the name of the
+  room you want to send it to, and it will be sent to all users in that room.
 
-> Note that this bot will most probably **not work on Windows**. It hasn't been
-> tested on Windows and I don't wish to ever support Windows. If it does, it's
-> just dumb luck 😉 Get someone to build a [Docker image](#docker) for you to
-> run or find a Mac or Linux machine. A Raspberry Pi is a great option to get
-> started.
+### Why rooms are more reliable than channels
 
-### Meshtastic node
+Direct messages have delivery notification feedback in the app to show you if
+your message successfully arrived at its destination. Channels only show that
+your message was repeated by _someone_. Also, since Meshtastic 2.6, it makes use
+of ["next-hop" routing for direct
+messages](https://meshtastic.org/blog/meshtastic-2-6-preview/#next-hop-routing-for-dms).
+Channels however do not benefit from this improvement.
+
+Sometimes direct messages arrive properly, but the delivery notification doesn't
+make it back to you. As additional feedback that you have successfully sent a
+message, any messages you send to a room will also be echoed back to you. If
+your connection to the bot is poor, this may take a while though, so be patient
+before sending again.
+
+Finally, Meshbot will keep trying to send messages to all users in a room
+(including the sender) until it receives good delivery notifications. This means
+that you may sometimes receive messages multiple times, but it ensures that your
+communication is fairly reliable. Even if you move out of range, Meshbot will
+remember which messages you missed and as soon as it sees you coming back into
+range it will send you the entire history since you left.
+
+## Hosting Meshbot
+
+### Be responsible
+
+There is very little bandwidth available on Meshtastic. If you use this bot, and
+especially if you wish to modify it, please make sure it doesn't spam your local
+mesh. Make sure it only speaks when spoken to. Et cetera. Be a good neighbour.
+
+### Setup
+
+> **Please note** that this bot has currently **only** been tested on Linux and
+> as a Docker image, over TCP. I expect it will probably work over USB and/or on
+> MacOS, Windows or Raspberry Pi, but beware there may be dragons 😉 Feel free
+> to create an issue if you run into things, but broad support is currently not
+> a high priority.
+
+You will need a Meshtastic node and a computer to host the bot. The node and the
+computer can either be connected through a USB cable, or [trough your network
+over wifi or
+ethernet](https://meshtastic.org/docs/configuration/radio/network/).
+
+The former can be super mobile and does not depend on your local network being
+up (for example during a power outage). The latter allows you the luxury of
+having your node in the best possible spot for reception, while the bot is
+running wherever you happen to have compute.
+
+#### Meshtastic node
+
+This software is being developed using a Heltec v3, but any Meshtastic node
+should do.
 
 Make sure no other client besides the bot is communicating with the node,
 otherwise both clients will be missing messages and things will appear to be
@@ -60,73 +117,41 @@ Pro-tips on the Meshtastic side:
 - Add a robot emoji (🤖) to your node name to make it clear to other users that
   your node is a bot.
 - You can add quick chat messages -- at least in the Android Meshtastic app.
-  Adding the commands that the bot accepts (like `NEW` and `/SIGNAL`) as quick
-  messages makes them really easily accessible with one click.
+  Adding the commands that the bot accepts (like `/rooms` and `/signal`) as
+  quick messages makes them really easily accessible with one click.
 
-### Computer
+#### Computer
 
-You can run the bot [through Docker (see below)](#docker) or directly on the
+Any computer will do as long as it stays on, of course. I run it locally on my
+NAS, but even an old Raspberry Pi should work great for the bot. It requires
+very few resources. You can run the bot through Docker or directly on the
 computer.
 
-Assuming you have `git`, `make` and Python 3 installed, clone the project and
-copy [`.env`](./.env) to a new file named `production.env` in the project root:
+Download the appropriate version of the software from the [releases
+page](https://github.com/Timendus/meshbot/releases). Edit the `config.json` file
+to tell the bot how to connect to your node and how to behave and start the
+software. `config.json` should be in the same directory as the software.
+
+For the docker version, mount a directory to `/app/config`. Launch the
+container. The first time, if configured correctly, a `config.json` file will be
+created in the mounted directory for you to edit. Stop the container, edit the
+config file and restart the container.
+
+## Local development
+
+Dependencies:
+
+- Golang
+- Git
+- make
+
+Then do something like:
 
 ```bash
 git clone git@github.com:Timendus/meshbot.git
 cd meshbot
-cp .env production.env
-```
-
-Edit the `production.env` file to specify how the bot should connect to your
-node and also where to find Ollama if you wish to use the self-hosted LLM
-feature. The file has some examples to get you started:
-
-https://github.com/Timendus/meshbot/blob/735012c0db883f43378fceedabd81103a04355e7/.env#L1-L17
-
-Then install the dependencies in a new virtual environment and run the bot:
-
-```bash
-make dependencies
+vi config.json
 make
 ```
 
-The software will attempt to connect to the network address or USB device you
-specified in `production.env`. If all goes well you should be greeted by a list
-of nodes your bot node has seen, and you should be seeing Meshtastic packets get
-logged to the console.
-
-## Usage
-
-I'll probably document this at some point, but for now:
-
-Send a direct message to the node you have connected Meshbot to from another
-Meshtastic node, and it will reply to you with the available commands.
-
-## Be responsible
-
-There is very little bandwidth available on Meshtastic. If you use this bot, and
-especially if you wish to modify it, please make sure it doesn't spam your local
-mesh. Make sure it only speaks when spoken to. Et cetera. Be a good neighbour.
-
-For this reason I have tried to design the commands in such a way that you can
-do anything you want by sending a single message. No traversing deep menus or
-having to send multiple messages to achieve your goals.
-
-## Docker
-
-There is a dockerfile available if you wish to run this bot in Docker. I will
-probably put this on Dockerhub when it is a bit more polished, but for now you
-have to build the image yourself.
-
-Run `make build` to create the docker image. Run `make run-image` to run locally
-or `make export-image` to build a `.tar.gz` file to run elsewhere.
-
-To configure which host to connect to, either mount a `production.env` file in
-the project root, or set environment variables to match the settings in
-`production.env`.
-
-The command line way for this is:
-
-```bash
-docker run --name=meshbot --env=TRANSPORT=serial --env=DEVICE=/dev/ttyUSB0 -d timendus/meshbot
-```
+And the bot should start.
