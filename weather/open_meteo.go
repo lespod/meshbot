@@ -2,7 +2,7 @@
 // shite, but it does seem to work. So I'm just going to use it as a black box
 // and be done with it.
 
-package meshbot
+package weather
 
 import (
 	"encoding/json"

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/timendus/meshbot/config"
-	"github.com/timendus/meshbot/meshbot"
 	m "github.com/timendus/meshbot/meshwrapper"
 	"github.com/timendus/meshbot/meshwrapper/helpers"
 	"github.com/timendus/meshbot/roomserver"
+	"github.com/timendus/meshbot/weather"
 	"go.bug.st/serial"
 )
 
@@ -211,7 +211,7 @@ func incoming(message m.Message) {
 				message.Reply("🤖🧨 I'm sorry! I can't give you a weather report, because I don't know the location of either of us.")
 				return
 			}
-			weather, err := meshbot.FetchWeather(meshbot.Position{
+			weather, err := weather.FetchWeather(weather.Position{
 				Latitude:  float64(pos[0]),
 				Longitude: float64(pos[1]),
 			})
@@ -241,7 +241,7 @@ func incoming(message m.Message) {
 				message.Reply("🤖🧨 I'm sorry! I can't give you a weather forecast, because I don't know the location of either of us.")
 				return
 			}
-			forecast, err := meshbot.FetchForecast(meshbot.Position{
+			forecast, err := weather.FetchForecast(weather.Position{
 				Latitude:  float64(pos[0]),
 				Longitude: float64(pos[1]),
 			})
