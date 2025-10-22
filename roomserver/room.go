@@ -20,9 +20,10 @@ type Message struct {
 }
 
 type User struct {
-	Node    *m.Node
-	Send    func(string) chan bool
-	Backlog []*Message
+	Node     *m.Node
+	Send     func(string) chan bool
+	Backlog  []*Message
+	Selected *Room
 }
 
 var Rooms []Room
@@ -51,7 +52,7 @@ func GetUser(msg m.Message) *User {
 
 func RoomList(user *User) string {
 	text := ""
-	for _, room := range Rooms {
+	for i, room := range Rooms {
 		public := " ✅ "
 		if room.Config.Password != "" {
 			public = " 🔐 "
@@ -60,7 +61,11 @@ func RoomList(user *User) string {
 		if room.present(user) {
 			joined = " (joined)"
 		}
-		text += public + room.Config.Name + joined + "\n"
+		selected := ""
+		if user.Selected == &Rooms[i] {
+			selected = " (selected)"
+		}
+		text += public + room.Config.Name + joined + selected + "\n"
 	}
 	return text
 }
@@ -76,6 +81,7 @@ func Join(user *User, roomName string, password string) error {
 				return fmt.Errorf("You are already in room %s", room.Config.Name)
 			}
 			Rooms[i].Users = append(Rooms[i].Users, user)
+			user.Selected = &Rooms[i]
 			return nil
 		}
 	}
@@ -89,6 +95,7 @@ func Leave(user *User, roomName string) error {
 			for j, u := range room.Users {
 				if u.Node.Id == user.Node.Id {
 					Rooms[i].Users = append(Rooms[i].Users[:j], Rooms[i].Users[j+1:]...)
+					user.autoSelectRoom()
 					return nil
 				}
 			}
@@ -98,20 +105,20 @@ func Leave(user *User, roomName string) error {
 	return fmt.Errorf("Can't find that room!")
 }
 
-func RoomsForUser(user *User) []Room {
-	rooms := make([]Room, 0)
-	for _, room := range Rooms {
-		if room.present(user) {
-			rooms = append(rooms, room)
+func Select(user *User, roomName string) error {
+	roomName = strings.ToLower(roomName)
+	for i, room := range Rooms {
+		if roomName == strings.ToLower(room.Config.Name) {
+			return user.selectRoom(&Rooms[i])
 		}
 	}
-	return rooms
+	return fmt.Errorf("Can't find that room!")
 }
 
 func Send(user *User, message string) error {
-	rooms := RoomsForUser(user)
-	switch len(rooms) {
-	case 0:
+	rooms := user.rooms()
+
+	if len(rooms) == 0 {
 		firstPublicRoom := ""
 		for _, room := range Rooms {
 			if room.Config.Password == "" {
@@ -126,27 +133,20 @@ func Send(user *User, message string) error {
 			return fmt.Errorf("You're not in any rooms. /join a room.")
 		}
 		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴", firstPublicRoom, firstPublicRoom)
-	case 1:
-		rooms[0].send(Message{Sender: user, Contents: message})
-		return nil
-	default:
-		parts := strings.Split(message, " ")
-		roomName := strings.ToLower(parts[0])
-		for _, room := range rooms {
-			if roomName == strings.ToLower(room.Config.Name) {
-				room.send(Message{Sender: user, Contents: strings.Join(parts[1:], " ")})
-				return nil
-			}
-		}
-		return fmt.Errorf("You've joined multiple rooms, please prefix your message with the name of the room you want to send to.")
 	}
+
+	if user.Selected == nil {
+		return fmt.Errorf("You have not selected a room to send to. Please /select a room.")
+	}
+	user.Selected.send(Message{Sender: user, Contents: message})
+	return nil
 }
 
 func (room *Room) send(msg Message) {
 	room.Messages = append(room.Messages, msg)
 	for _, user := range room.Users {
 		go func() {
-			ok := <-user.Send("[" + msg.Sender.Node.ShortName + "] " + msg.Contents)
+			ok := <-user.Send("[" + msg.Sender.Node.ShortName + " in " + room.Config.Name + "] " + msg.Contents)
 			if !ok {
 				user.Backlog = append(user.Backlog, &msg)
 			}
@@ -161,4 +161,49 @@ func (room *Room) present(user *User) bool {
 		}
 	}
 	return false
+}
+
+func (user *User) rooms() []Room {
+	rooms := make([]Room, 0)
+	for _, room := range Rooms {
+		if room.present(user) {
+			rooms = append(rooms, room)
+		}
+	}
+	return rooms
+}
+
+func (user *User) selectRoom(room *Room) error {
+	if !room.present(user) {
+		return fmt.Errorf("You can't select a room you haven't joined")
+	}
+
+	if user.Selected == room {
+		return fmt.Errorf("Room %s was already selected", room.Config.Name)
+	}
+
+	user.Selected = room
+	return nil
+}
+
+func (user *User) autoSelectRoom() {
+	rooms := user.rooms()
+
+	// If no rooms; no selection
+	if len(rooms) == 0 {
+		user.Selected = nil
+		return
+	}
+
+	// If selected is a valid room, keep it
+	if user.Selected != nil {
+		for i := range rooms {
+			if user.Selected == &rooms[i] {
+				return
+			}
+		}
+	}
+
+	// Otherwise, select the first room
+	user.Selected = &rooms[0]
 }

@@ -41,18 +41,20 @@ Commands are not case-sensitive.
 
 - `/rooms` - Fetch a list of available rooms and your status in them
 - `/join <room name> <optional password>` - Join a room, so you will receive
-  messages sent to it. Supply a password for private rooms
+  messages sent to it. Supply a password for private rooms. Joining a room also
+  selects it
+- `/select <room name>` - Select a room. Messages you send will be broadcast to
+  the selected room. Only a single room can be selected at a time. You can only
+  select a room that you have joined
 - `/leave <room name>` - Leave a room, so you will no longer receive messages
   sent to it
 
 For any other DM you send to the bot:
 
 - If you have not joined any rooms, and a public room exists (one without a
-  password), it will add you to this room automatically.
-- If you have joined one room, any DM you send to the bot will be sent to all
-  users in that room.
-- If you have joined multiple rooms, prefix your message with the name of the
-  room you want to send it to, and it will be sent to all users in that room.
+  password), it will make you join this room and select it automatically.
+- Otherwise, any DM you send to the bot will be sent to all users in the
+  selected room.
 
 ### Why rooms are more reliable than channels
 

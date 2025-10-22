@@ -165,6 +165,7 @@ func incoming(message m.Message) {
 
  - /rooms
  - /join <room name> <optional password>
+ - /select <room name>
  - /leave <room name>`)
 			message.Reply(
 				`Bonus features:
@@ -275,12 +276,7 @@ func incoming(message m.Message) {
 		user := roomserver.GetUser(message)
 
 		if strings.HasPrefix(command, "/ROOMS") {
-			message.Reply(
-				`🤖💬 These are the available rooms: 
-
-` + roomserver.RoomList(user) + `
-Join by sending /join <room name> <optional password>
-Leave by sending /leave <room name>`)
+			message.Reply("🤖💬 These are the available rooms:\n\n" + roomserver.RoomList(user))
 			return
 		}
 
@@ -300,7 +296,7 @@ Leave by sending /leave <room name>`)
 				message.Reply("🤖💬 " + err.Error())
 				return
 			}
-			message.Reply("🤖💬 You joined " + roomName)
+			message.Reply("🤖💬 You joined " + roomName + ". It was also automatically selected for you to send to.")
 			return
 		}
 
@@ -320,6 +316,27 @@ Leave by sending /leave <room name>`)
 			return
 		}
 
+		if strings.HasPrefix(command, "/SELECT") {
+			params := strings.Split(strings.TrimSpace(message.Text[len("/SELECT"):]), " ")
+			if len(params) == 0 {
+				message.Reply("🤖🧨 You need to specify the name of a room to select")
+				return
+			}
+			roomName := params[0]
+			err := roomserver.Select(user, roomName)
+			if err != nil {
+				message.Reply("🤖💬 " + err.Error())
+				return
+			}
+			message.Reply("🤖💬 You selected " + roomName)
+			return
+		}
+
+		if strings.HasPrefix(command, "/") {
+			message.Reply("🤖❓ I don't know that command. See /help for the things I understand!")
+			return
+		}
+
 		// Handle freeform messages to a room
 		msg := strings.TrimSpace(message.Text)
 		if len(msg) == 0 {
@@ -328,7 +345,11 @@ Leave by sending /leave <room name>`)
 		err := roomserver.Send(user, msg)
 		if err != nil {
 			<-message.Reply("🤖💬 " + err.Error())
-			message.Reply("Send /rooms to see available rooms\nSend /help to see all commands")
+			message.Reply(
+				`You receive messages from rooms you have joined.
+You send messages to the room you have selected.
+Send /rooms to see available rooms.
+Send /help to see all commands`)
 			return
 		}
 	}
