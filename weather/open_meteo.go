@@ -5,6 +5,7 @@
 package weather
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"time"
 )
+
+//go:embed wmo_codes.json
+var wmoCodesJSON string
 
 // Position represents a geographical coordinate.
 type Position struct {
@@ -40,13 +43,7 @@ var wmoCodes map[string]WmoCode
 
 func init() {
 	// Load wmo_codes.json
-	data, err := os.ReadFile("./wmo_codes.json")
-	if err != nil {
-		log.Printf("Error reading wmo_codes.json: %v", err)
-		wmoCodes = make(map[string]WmoCode)
-		return
-	}
-	err = json.Unmarshal(data, &wmoCodes)
+	err := json.Unmarshal([]byte(wmoCodesJSON), &wmoCodes)
 	if err != nil {
 		log.Printf("Error parsing wmo_codes.json: %v", err)
 		wmoCodes = make(map[string]WmoCode)

@@ -31,7 +31,6 @@ COPY --from=build /app/output /app
 # Have a little runner script that copies the default config and plugins to the
 # host directory if not yet present
 COPY ./config.json /app/default-config/config.json
-COPY ./wmo_codes.json /app/wmo_codes.json
 RUN cat >./run-meshbot.sh <<EOF
 #!/bin/sh
 if [ ! -f "/app/config/config.json" ]; then
