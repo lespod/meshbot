@@ -304,9 +304,9 @@ func FetchForecast(position Position) (string, error) {
 		}
 	}
 
-	// Build the forecast string (limit to 6 days if available)
+	// Build the forecast string (limit to 3 days if available)
 	forecastStr := ""
-	limit := 6
+	limit := 3
 	if n < limit {
 		limit = n
 	}
