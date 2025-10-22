@@ -70,10 +70,10 @@ func Join(user *User, roomName string, password string) error {
 	for i, room := range Rooms {
 		if roomName == strings.ToLower(room.Config.Name) {
 			if room.Config.Password != "" && room.Config.Password != password {
-				return fmt.Errorf("Invalid password for " + room.Config.Name)
+				return fmt.Errorf("Invalid password for %s", room.Config.Name)
 			}
 			if room.present(user) {
-				return fmt.Errorf("You are already in room " + room.Config.Name)
+				return fmt.Errorf("You are already in room %s", room.Config.Name)
 			}
 			Rooms[i].Users = append(Rooms[i].Users, user)
 			return nil
@@ -92,7 +92,7 @@ func Leave(user *User, roomName string) error {
 					return nil
 				}
 			}
-			return fmt.Errorf("Looks like you were not in room " + roomName)
+			return fmt.Errorf("Looks like you were not in room %s", roomName)
 		}
 	}
 	return fmt.Errorf("Can't find that room!")
@@ -125,7 +125,7 @@ func Send(user *User, message string) error {
 		if err != nil {
 			return fmt.Errorf("You're not in any rooms. /join a room.")
 		}
-		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room " + firstPublicRoom + ".\n\n🔴 Note: All messages you send to me from now on will be broadcast to room " + firstPublicRoom + "! 🔴")
+		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴", firstPublicRoom, firstPublicRoom)
 	case 1:
 		rooms[0].send(Message{Sender: user, Contents: message})
 		return nil
