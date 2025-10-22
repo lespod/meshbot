@@ -151,6 +151,11 @@ func incoming(message m.Message) {
 	if message.MessageType == m.MESSAGE_TYPE_TEXT_MESSAGE {
 		command := strings.ToUpper(message.Text)
 
+		if strings.HasPrefix(command, "/PING") {
+			message.Reply("🤖🏓 Pong!")
+			return
+		}
+
 		if strings.HasPrefix(command, "/HELP") || strings.HasPrefix(command, "/ABOUT") {
 			<-message.Reply(
 				`🤖👋 Hello! I'm your friendly neighbourhood roomserver bot. I understand these commands:
