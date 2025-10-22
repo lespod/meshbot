@@ -26,7 +26,7 @@ type Node struct {
 	Position         *Position
 }
 
-func NewNode(info *meshtastic.NodeInfo) *Node {
+func NewNode(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) *Node {
 	node := Node{
 		Id:               info.Num,
 		HopsAway:         0,
@@ -38,11 +38,13 @@ func NewNode(info *meshtastic.NodeInfo) *Node {
 		Neighbors:        make(NeighborList, 0),
 	}
 
-	node.Update(info)
+	node.ingestNodeInfo(connectedNode, info)
 	return &node
 }
 
-func (n *Node) Update(info *meshtastic.NodeInfo) {
+// NodeInfo is basically the node list we get from the device when we first
+// connect over serial (I think) as well as the list of nodes in Neighbour Info
+func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) {
 	if info == nil || info.Num != n.Id {
 		return
 	}
@@ -51,12 +53,10 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 	n.LastHeard = time.Unix(int64(info.LastHeard), 0)
 
 	if info.Position != nil {
-		// TODO: move this to connected_node, I think. Because we don't have the
-		// receiving node here. Does that even matter..?
 		n.ReceivedMessages = append(n.ReceivedMessages, &Message{
 			FromNode:      n,
 			ToNode:        &Broadcast,
-			ReceivingNode: nil,
+			ReceivingNode: connectedNode,
 			Timestamp:     time.Unix(int64(info.LastHeard), 0),
 			MessageType:   MESSAGE_TYPE_POSITION,
 			Position:      NewPosition(info.Position),
@@ -65,12 +65,10 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 	}
 
 	if info.DeviceMetrics != nil {
-		// TODO: move this to connected_node, I think. Because we don't have the
-		// receiving node here. Does that even matter..?
 		n.ReceivedMessages = append(n.ReceivedMessages, &Message{
 			FromNode:      n,
 			ToNode:        &Broadcast,
-			ReceivingNode: nil,
+			ReceivingNode: connectedNode,
 			Timestamp:     time.Unix(int64(info.LastHeard), 0),
 			MessageType:   MESSAGE_TYPE_TELEMETRY_DEVICE,
 			DeviceMetrics: info.DeviceMetrics,
@@ -88,6 +86,34 @@ func (n *Node) Update(info *meshtastic.NodeInfo) {
 		n.Role = info.User.Role
 		n.IsLicensed = info.User.IsLicensed
 		n.PublicKey = info.User.PublicKey
+	}
+}
+
+// If we receive a messages that came from this node, make sure we update our
+// node accordingly and store the message in our list
+func (n *Node) receiveMessage(connectedNode *ConnectedNode, message Message) {
+	n.ReceivedMessages = append(n.ReceivedMessages, &message)
+	n.LastHeard = message.Timestamp
+	n.HopsAway = message.HopsAway
+	if message.HopsAway == 0 {
+		// Assumption: the packet RxSnr is the signal quality of the received
+		// packet, which may have hopped through other nodes. So only update
+		// this node's SNR if we haven't hopped yet.
+		n.Snr = message.Snr
+	}
+
+	switch message.MessageType {
+	case MESSAGE_TYPE_NODE_INFO:
+		n.ShortName = message.UserInfo.ShortName
+		n.LongName = message.UserInfo.LongName
+		n.HwModel = message.UserInfo.HwModel
+		n.Role = message.UserInfo.Role
+		n.IsLicensed = message.UserInfo.IsLicensed
+		n.PublicKey = message.UserInfo.PublicKey
+	case MESSAGE_TYPE_POSITION:
+		n.Position = message.Position
+	case MESSAGE_TYPE_NEIGHBOR_INFO:
+		n.Neighbors = NewNeighbourList(connectedNode, message)
 	}
 }
 

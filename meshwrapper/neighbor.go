@@ -20,21 +20,20 @@ func (n *Neighbor) String() string {
 
 type NeighborList []Neighbor
 
-func NewNeighbourList(nodelist *nodeList, timestamp uint32, neighbors []*meshtastic.Neighbor) NeighborList {
-	properTimestamp := time.Unix(int64(timestamp), 0)
+func NewNeighbourList(connectedNode *ConnectedNode, message Message) NeighborList {
 	neighbourList := make([]Neighbor, 0)
-	for _, neighbor := range neighbors {
-		node := nodelist.nodes[neighbor.NodeId]
-		if node == nil {
-			node = NewNode(&meshtastic.NodeInfo{
+	for _, neighbor := range message.NeighborInfo.Neighbors {
+		node, ok := connectedNode.NodeList.nodes[neighbor.NodeId]
+		if !ok {
+			node = NewNode(connectedNode, &meshtastic.NodeInfo{
 				Num: neighbor.NodeId,
 			})
-			nodelist.nodes[neighbor.NodeId] = node
+			connectedNode.NodeList.nodes[neighbor.NodeId] = node
 		}
 		neighbourList = append(neighbourList, Neighbor{
 			Node:         node,
 			Snr:          neighbor.Snr,
-			LastReported: properTimestamp,
+			LastReported: message.Timestamp,
 		})
 	}
 	return neighbourList

@@ -5,13 +5,10 @@ import (
 	"io"
 	"log"
 	"math/rand/v2"
-	"strconv"
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
 	"github.com/timendus/meshbot/config"
-	"github.com/timendus/meshbot/meshwrapper/helpers"
-	"google.golang.org/protobuf/proto"
 )
 
 type ConnectedNode struct {
@@ -167,9 +164,9 @@ func (n *ConnectedNode) parseNodeInfo(nodeInfo *meshtastic.NodeInfo) {
 	// Create or update the node that this info relates to
 	relevantNode, exists := n.NodeList.nodes[nodeInfo.Num]
 	if !exists {
-		n.NodeList.nodes[nodeInfo.Num] = NewNode(nodeInfo)
+		n.NodeList.nodes[nodeInfo.Num] = NewNode(n, nodeInfo)
 	} else {
-		relevantNode.Update(nodeInfo)
+		relevantNode.ingestNodeInfo(n, nodeInfo)
 	}
 }
 
@@ -179,36 +176,29 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		return
 	}
 
-	var hops uint32
-	if meshPacket.HopStart == 0 {
-		hops = 0
-	} else {
-		hops = meshPacket.HopStart - meshPacket.HopLimit
-	}
-
-	payload := meshPacket.GetDecoded().GetPayload()
-
-	toNode := n.NodeList.nodes[meshPacket.To]
-	fromNode := n.NodeList.nodes[meshPacket.From]
-
-	if fromNode == nil {
-		// If the sending node is not in our node list yet, just add it.
-		fromNode = NewNode(&meshtastic.NodeInfo{
-			Num:       meshPacket.From,
-			LastHeard: meshPacket.RxTime,
+	fromNode, ok := n.NodeList.nodes[meshPacket.From]
+	if !ok {
+		fromNode = NewNode(n, &meshtastic.NodeInfo{
+			Num: meshPacket.From,
 		})
 		n.NodeList.nodes[meshPacket.From] = fromNode
 	}
 
-	fromNode.HopsAway = hops
-	if hops == 0 {
-		// Assumption: the packet RxSnr is the signal quality of the received
-		// packet, which may have hopped through other nodes. So only update
-		// this node's SNR if we haven't hopped yet.
-		fromNode.Snr = meshPacket.RxSnr
+	toNode, ok := n.NodeList.nodes[meshPacket.To]
+	if !ok {
+		toNode = NewNode(n, &meshtastic.NodeInfo{
+			Num: meshPacket.To,
+		})
+		n.NodeList.nodes[meshPacket.To] = toNode
 	}
 
-	channel := n.Channels[meshPacket.Channel]
+	channel, ok := n.Channels[meshPacket.Channel]
+	if !ok {
+		channel = Channel{
+			id: meshPacket.Channel,
+		}
+		n.Channels[meshPacket.Channel] = channel
+	}
 
 	message := Message{
 		FromNode:      fromNode,
@@ -218,122 +208,9 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		Timestamp:     time.Unix(int64(meshPacket.RxTime), 0),
 		MessageType:   MESSAGE_TYPE_OTHER,
 		Snr:           meshPacket.RxSnr,
-		HopsAway:      hops,
 	}
-
-	fromNode.ReceivedMessages = append(fromNode.ReceivedMessages, &message)
-
-	switch meshPacket.GetDecoded().Portnum {
-	case meshtastic.PortNum_NODEINFO_APP:
-		result := meshtastic.User{}
-		err := proto.Unmarshal(payload, &result)
-		if err != nil {
-			log.Println("Error: Could not unmarshall NodeInfo User mesh packet: " + err.Error())
-			return
-		}
-		fromNode.ShortName = result.ShortName
-		fromNode.LongName = result.LongName
-		fromNode.HwModel = result.HwModel
-		fromNode.Role = result.Role
-		fromNode.IsLicensed = result.IsLicensed
-		fromNode.PublicKey = result.PublicKey
-		message.MessageType = MESSAGE_TYPE_NODE_INFO
-		MessageEvents.publish(NodeInfoEvent, message)
-
-	case meshtastic.PortNum_TELEMETRY_APP:
-		result := meshtastic.Telemetry{}
-		err := proto.Unmarshal(payload, &result)
-		if err != nil {
-			log.Println("Error: Could not unmarshall Telemetry mesh packet: " + err.Error())
-			return
-		}
-		switch result.Variant.(type) {
-		case *meshtastic.Telemetry_DeviceMetrics:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_DEVICE
-			message.DeviceMetrics = result.GetDeviceMetrics()
-			MessageEvents.publish(DeviceTelemetryEvent, message)
-		case *meshtastic.Telemetry_EnvironmentMetrics:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_ENVIRONMENT
-			message.EnvironmentMetrics = result.GetEnvironmentMetrics()
-			MessageEvents.publish(EnvironmentTelemetryEvent, message)
-		case *meshtastic.Telemetry_HealthMetrics:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_HEALTH
-			message.HealthMetrics = result.GetHealthMetrics()
-			MessageEvents.publish(HealthTelemetryEvent, message)
-		case *meshtastic.Telemetry_AirQualityMetrics:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_AIR_QUALITY
-			message.AirQualityMetrics = result.GetAirQualityMetrics()
-			MessageEvents.publish(AirQualityTelemetryEvent, message)
-		case *meshtastic.Telemetry_PowerMetrics:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_POWER
-			message.PowerMetrics = result.GetPowerMetrics()
-			MessageEvents.publish(PowerTelemetryEvent, message)
-		case *meshtastic.Telemetry_LocalStats:
-			message.MessageType = MESSAGE_TYPE_TELEMETRY_LOCAL_STATS
-			message.LocalStats = result.GetLocalStats()
-			MessageEvents.publish(LocalStatsTelemetryEvent, message)
-		default:
-			log.Println("Warning: Unknown telemetry variant:", result.String())
-		}
-		MessageEvents.publish(TelemetryEvent, message)
-
-	case meshtastic.PortNum_POSITION_APP:
-		result := meshtastic.Position{}
-		err := proto.Unmarshal(payload, &result)
-		if err != nil {
-			log.Println("Error: Could not unmarshall Position mesh packet: " + err.Error())
-			return
-		}
-		message.MessageType = MESSAGE_TYPE_POSITION
-		message.Position = NewPosition(&result)
-		MessageEvents.publish(PositionEvent, message)
-
-	case meshtastic.PortNum_NEIGHBORINFO_APP:
-		result := meshtastic.NeighborInfo{}
-		err := proto.Unmarshal(payload, &result)
-		if err != nil {
-			log.Println("Error: Could not unmarshall NeighborInfo mesh packet: " + err.Error())
-			return
-		}
-		message.MessageType = MESSAGE_TYPE_NEIGHBOR_INFO
-		message.NeighborInfo = &result
-		helpers.Assert(result.NodeId == meshPacket.From, "I don't understand this format well enough: received "+message.String()+" but it has NodeId "+strconv.Itoa(int(result.NodeId)))
-		fromNode.Neighbors = NewNeighbourList(&n.NodeList, meshPacket.RxTime, result.Neighbors)
-		MessageEvents.publish(NeighborInfoEvent, message)
-
-	case meshtastic.PortNum_TEXT_MESSAGE_APP:
-		message.MessageType = MESSAGE_TYPE_TEXT_MESSAGE
-		message.Text = string(payload)
-		MessageEvents.publish(TextMessageEvent, message)
-
-	case meshtastic.PortNum_ROUTING_APP:
-		if meshPacket.GetDecoded() != nil {
-			result := meshtastic.Routing{}
-			err := proto.Unmarshal(payload, &result)
-			if err != nil {
-				log.Println("Error: Could not unmarshall Routing mesh packet: " + err.Error())
-				return
-			}
-			if result.GetErrorReason() != meshtastic.Routing_NONE {
-				log.Println("Bad acknowledgement: " + meshtastic.Routing_Error_name[int32(result.GetErrorReason())])
-			}
-			messageId := meshPacket.GetDecoded().RequestId
-			if n.Acks[messageId] != nil {
-				n.Acks[messageId] <- result.GetErrorReason() == meshtastic.Routing_NONE
-				close(n.Acks[messageId])
-				delete(n.Acks, messageId)
-			}
-		}
-		message.MessageType = MESSAGE_TYPE_ROUTING
-		MessageEvents.publish(RoutingEvent, message)
-
-	case meshtastic.PortNum_TRACEROUTE_APP:
-		message.MessageType = MESSAGE_TYPE_TRACEROUTE
-		MessageEvents.publish(TraceRouteEvent, message)
-
-	default:
-		log.Println("Warning: Unknown mesh packet:", meshPacket.String())
-	}
+	message.ingestMeshPacket(n, meshPacket)
+	fromNode.receiveMessage(n, message)
 
 	MessageEvents.publish(IncomingMessageEvent, message)
 }
