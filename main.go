@@ -46,6 +46,7 @@ func main() {
 				log.Fatal("Serial connection configured, but not allowed by settings")
 			}
 			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
+				log.Println("Attempting to open serial connection to " + connection.SerialDevice)
 				stream, err := serial.Open(connection.SerialDevice, &serial.Mode{
 					BaudRate: 115200,
 				})
@@ -60,9 +61,11 @@ func main() {
 				log.Fatal("TCP connection configured, but not allowed by settings")
 			}
 			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
-				stream, err := net.Dial("tcp", connection.Hostname+":"+strconv.Itoa(connection.Port))
+				conn := connection.Hostname + ":" + strconv.Itoa(connection.Port)
+				log.Println("Attempting to open TCP connection to " + conn)
+				stream, err := net.Dial("tcp", conn)
 				if err != nil {
-					return nil, fmt.Errorf("Could not open TCP connection to '"+connection.Hostname+":"+strconv.Itoa(connection.Port)+"': ", err)
+					return nil, fmt.Errorf("Could not open TCP connection to '"+conn+"': ", err)
 				}
 				return stream, nil
 			})
