@@ -3,6 +3,8 @@ package roomserver
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/timendus/meshbot/config"
 	m "github.com/timendus/meshbot/meshwrapper"
@@ -20,10 +22,12 @@ type Message struct {
 }
 
 type User struct {
-	Node     *m.Node
-	Send     func(string) chan bool
-	Backlog  []*Message
-	Selected *Room
+	Node            *m.Node
+	Send            func(string) chan bool
+	Sending         atomic.Bool
+	UpdatingBacklog sync.Mutex
+	Backlog         []string
+	Selected        *Room
 }
 
 var Rooms []Room
@@ -38,13 +42,18 @@ func Init(cfg config.Config) {
 	Users = make(map[*m.Node]*User)
 }
 
+func UserExists(msg m.Message) bool {
+	_, ok := Users[msg.FromNode]
+	return ok
+}
+
 func GetUser(msg m.Message) *User {
 	if user, ok := Users[msg.FromNode]; ok {
 		return user
 	}
 	user := &User{
 		Node: msg.FromNode,
-		Send: func(m string) chan bool { return msg.Reply(m) },
+		Send: func(m string) chan bool { return msg.ReplyReliably(m) },
 	}
 	Users[msg.FromNode] = user
 	return user
@@ -142,14 +151,49 @@ func Send(user *User, message string) error {
 	return nil
 }
 
+func (u *User) SendBacklog() {
+	// Check if another attempt to send the backlog is already running
+	if !u.Sending.CompareAndSwap(false, true) {
+		// Another Goroutine is already running this
+		return
+	}
+	defer u.Sending.Store(false)
+
+	// Also, we're mutating the backlog, keep anyone else from messing with it
+	// for a while
+	u.UpdatingBacklog.Lock()
+	defer u.UpdatingBacklog.Unlock()
+
+	// Do we have a backlog to send to this user?
+	successful := 0
+	for _, msg := range u.Backlog {
+		ok := <-u.Send(msg) // With retries, this can take a couple of minutes
+		if !ok {
+			// It seems we're not getting through, try again later
+			break
+		}
+		// We can remove message from backlog
+		successful++
+	}
+	u.Backlog = u.Backlog[successful:]
+}
+
 func (room *Room) send(msg Message) {
 	room.Messages = append(room.Messages, msg)
 	for _, user := range room.Users {
 		go func() {
-			ok := <-user.Send("[" + msg.Sender.Node.ShortName + " in " + room.Config.Name + "] " + msg.Contents)
-			if !ok {
-				user.Backlog = append(user.Backlog, &msg)
+			var text string
+			if len(user.rooms()) > 1 {
+				text = "[" + msg.Sender.Node.ShortName + " in " + room.Config.Name + "] " + msg.Contents
+			} else {
+				text = "[" + msg.Sender.Node.ShortName + "] " + msg.Contents
 			}
+
+			// Safely mutate backlog and send new message
+			user.UpdatingBacklog.Lock()
+			user.Backlog = append(user.Backlog, text)
+			user.UpdatingBacklog.Unlock()
+			user.SendBacklog()
 		}()
 	}
 }

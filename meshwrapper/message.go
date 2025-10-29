@@ -169,6 +169,34 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 	}
 }
 
+func (m Message) ReplyReliably(message string, retries ...int) chan bool {
+	ch := make(chan bool)
+	attempt := 1
+	maxAttempts := 3
+	if len(retries) > 0 {
+		maxAttempts = retries[0]
+	}
+	go func() {
+		delivered := false
+		for {
+			log.Printf("Attempt %d to send message...\n", attempt)
+			delivered = <-m.Reply(message)
+			if delivered {
+				log.Println("Delivered successfully")
+				break
+			}
+			if attempt == maxAttempts {
+				log.Printf("Made %d attempts to send message, aborting\n", attempt)
+				break
+			}
+			attempt++
+		}
+		ch <- delivered
+		close(ch)
+	}()
+	return ch
+}
+
 func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
 	ch := make(chan bool)
 

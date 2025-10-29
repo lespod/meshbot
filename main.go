@@ -151,6 +151,10 @@ func disconnected(node m.ConnectedNode) {
 func incoming(message m.Message) {
 	fmt.Println(message.String())
 
+	if roomserver.UserExists(message) {
+		user := roomserver.GetUser(message)
+		go user.SendBacklog()
+	}
 
 	if message.MessageType != m.MESSAGE_TYPE_TEXT_MESSAGE {
 		return
@@ -280,14 +284,14 @@ func incoming(message m.Message) {
 	user := roomserver.GetUser(message)
 
 	if strings.HasPrefix(command, "/ROOMS") {
-		message.Reply("🤖💬 These are the available rooms:\n\n" + roomserver.RoomList(user))
+		message.ReplyReliably("🤖💬 These are the available rooms:\n\n" + roomserver.RoomList(user))
 		return
 	}
 
 	if strings.HasPrefix(command, "/JOIN") {
 		params := strings.Split(strings.TrimSpace(message.Text[len("/JOIN"):]), " ")
 		if len(params) == 0 {
-			message.Reply("🤖🧨 You need to specify the name of a room to join")
+			message.ReplyReliably("🤖🧨 You need to specify the name of a room to join")
 			return
 		}
 		roomName := params[0]
@@ -297,47 +301,47 @@ func incoming(message m.Message) {
 		}
 		err := roomserver.Join(user, roomName, password)
 		if err != nil {
-			message.Reply("🤖💬 " + err.Error())
+			message.ReplyReliably("🤖💬 " + err.Error())
 			return
 		}
-		message.Reply("🤖💬 You joined " + roomName + ". It was also automatically selected for you to send to.")
+		message.ReplyReliably("🤖💬 You joined " + roomName + ". It was also automatically selected for you to send to.")
 		return
 	}
 
 	if strings.HasPrefix(command, "/LEAVE") {
 		params := strings.Split(strings.TrimSpace(message.Text[len("/LEAVE"):]), " ")
 		if len(params) == 0 {
-			message.Reply("🤖🧨 You need to specify the name of a room to leave")
+			message.ReplyReliably("🤖🧨 You need to specify the name of a room to leave")
 			return
 		}
 		roomName := params[0]
 		err := roomserver.Leave(user, roomName)
 		if err != nil {
-			message.Reply("🤖🧨 " + err.Error())
+			message.ReplyReliably("🤖🧨 " + err.Error())
 			return
 		}
-		message.Reply("🤖💬 You left " + roomName)
+		message.ReplyReliably("🤖💬 You left " + roomName)
 		return
 	}
 
 	if strings.HasPrefix(command, "/SELECT") {
 		params := strings.Split(strings.TrimSpace(message.Text[len("/SELECT"):]), " ")
 		if len(params) == 0 {
-			message.Reply("🤖🧨 You need to specify the name of a room to select")
+			message.ReplyReliably("🤖🧨 You need to specify the name of a room to select")
 			return
 		}
 		roomName := params[0]
 		err := roomserver.Select(user, roomName)
 		if err != nil {
-			message.Reply("🤖💬 " + err.Error())
+			message.ReplyReliably("🤖💬 " + err.Error())
 			return
 		}
-		message.Reply("🤖💬 You selected " + roomName)
+		message.ReplyReliably("🤖💬 You selected " + roomName)
 		return
 	}
 
 	if strings.HasPrefix(command, "/") {
-		message.Reply("🤖❓ I don't know that command. See /help for the things I understand!")
+		message.ReplyReliably("🤖❓ I don't know that command. See /help for the things I understand!")
 		return
 	}
 
@@ -348,8 +352,8 @@ func incoming(message m.Message) {
 	}
 	err := roomserver.Send(user, msg)
 	if err != nil {
-		<-message.Reply("🤖💬 " + err.Error())
-		message.Reply(
+		<-message.ReplyReliably("🤖💬 " + err.Error())
+		message.ReplyReliably(
 			`You receive messages from rooms you have joined.
 You send messages to the room you have selected.
 Send /rooms to see available rooms.
