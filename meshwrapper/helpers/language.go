@@ -56,24 +56,29 @@ func BreakMessage(input string) []string {
 	const MAX_MESSAGE_LENGTH = 200
 	const MAX_LENGTH_WITH_PAGINATION = 200 - len(" [1/2]")
 	input = strings.TrimSpace(input)
+	messages := make([]string, 0)
+	for _, message := range strings.Split(input, "<BREAK-MESSAGE>") {
+		message = strings.TrimSpace(message)
 
-	// Don't try to cut up messages that fit
-	if len(input) <= MAX_MESSAGE_LENGTH {
-		return []string{input}
-	}
-
-	messages := BreakMessageAt(input, MAX_LENGTH_WITH_PAGINATION)
-	Assert(len(messages) < 1000, "What the hell are you doing creating so many messages..?")
-
-	// Add pagination info to each message
-	for i := range messages {
-		if len(messages) > 9 {
-			messages[i] += " [" + strconv.Itoa(i+1) + "]"
-		} else {
-			messages[i] += " [" + strconv.Itoa(i+1) + "/" + strconv.Itoa(len(messages)) + "]"
+		// Don't try to cut up messages that fit
+		if len(message) <= MAX_MESSAGE_LENGTH {
+			messages = append(messages, message)
+			continue
 		}
-	}
 
+		// Cut message in parts and add pagination info to each part
+		messageParts := BreakMessageAt(message, MAX_LENGTH_WITH_PAGINATION)
+		for i := range messageParts {
+			if len(messageParts) > 9 {
+				messageParts[i] += " [" + strconv.Itoa(i+1) + "]"
+			} else {
+				messageParts[i] += " [" + strconv.Itoa(i+1) + "/" + strconv.Itoa(len(messageParts)) + "]"
+			}
+		}
+
+		messages = append(messages, messageParts...)
+	}
+	Assert(len(messages) < 1000, "What the hell are you doing creating so many messages..?")
 	return messages
 }
 

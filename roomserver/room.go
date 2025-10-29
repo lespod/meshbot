@@ -125,8 +125,13 @@ func Select(user *User, roomName string) error {
 }
 
 func Send(user *User, message string) error {
-	rooms := user.rooms()
+	helpText := `<BREAK-MESSAGE>
+You receive messages from rooms you have joined.
+You send messages to the room you have selected.
+Send /rooms to see available rooms.
+Send /help to see all commands`
 
+	rooms := user.rooms()
 	if len(rooms) == 0 {
 		firstPublicRoom := ""
 		for _, room := range Rooms {
@@ -135,17 +140,17 @@ func Send(user *User, message string) error {
 			}
 		}
 		if firstPublicRoom == "" {
-			return fmt.Errorf("You're not in any rooms. /join a room.")
+			return fmt.Errorf("You're not in any rooms. /join a room." + helpText)
 		}
 		err := Join(user, firstPublicRoom, "")
 		if err != nil {
-			return fmt.Errorf("You're not in any rooms. /join a room.")
+			return fmt.Errorf("You're not in any rooms. /join a room." + helpText)
 		}
-		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴", firstPublicRoom, firstPublicRoom)
+		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴"+helpText, firstPublicRoom, firstPublicRoom)
 	}
 
 	if user.Selected == nil {
-		return fmt.Errorf("You have not selected a room to send to. Please /select a room.")
+		return fmt.Errorf("You have not selected a room to send to. Please /select a room." + helpText)
 	}
 	user.Selected.send(Message{Sender: user, Contents: message})
 	return nil

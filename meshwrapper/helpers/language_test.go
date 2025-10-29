@@ -38,6 +38,11 @@ func TestMessagePagination(t *testing.T) {
 	)
 
 	AssertBreaking(t,
+		"Hello<BREAK-MESSAGE>Hello",
+		[]string{"Hello", "Hello"},
+	)
+
+	AssertBreaking(t,
 		TWO_HUNDRED_CHARS,
 		[]string{TWO_HUNDRED_CHARS},
 	)
@@ -45,6 +50,15 @@ func TestMessagePagination(t *testing.T) {
 	AssertBreaking(t,
 		TWO_HUNDRED_CHAR_WORDS,
 		[]string{TWO_HUNDRED_CHAR_WORDS},
+	)
+
+	AssertBreaking(t,
+		TWO_HUNDRED_CHAR_WORDS+"<BREAK-MESSAGE>   Hello  <BREAK-MESSAGE>  Hello",
+		[]string{
+			TWO_HUNDRED_CHAR_WORDS,
+			"Hello",
+			"Hello",
+		},
 	)
 
 	AssertBreaking(t,

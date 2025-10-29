@@ -168,15 +168,17 @@ func incoming(message m.Message) {
 	}
 
 	if strings.HasPrefix(command, "/HELP") || strings.HasPrefix(command, "/ABOUT") {
-		<-message.Reply(
+		message.Reply(
 			`🤖👋 Hello! I'm your friendly neighbourhood roomserver bot. I understand these commands:
 
  - /rooms
  - /join <room name> <optional password>
  - /select <room name>
- - /leave <room name>`)
-		message.Reply(
-			`Bonus features:
+ - /leave <room name>
+ 
+ <BREAK-MESSAGE>
+ 
+ Bonus features:
 
  - /neighbours
  - /signal <optional node>
@@ -352,12 +354,7 @@ func incoming(message m.Message) {
 	}
 	err := roomserver.Send(user, msg)
 	if err != nil {
-		<-message.ReplyReliably("🤖💬 " + err.Error())
-		message.ReplyReliably(
-			`You receive messages from rooms you have joined.
-You send messages to the room you have selected.
-Send /rooms to see available rooms.
-Send /help to see all commands`)
+		message.ReplyReliably("🤖💬 " + err.Error())
 		return
 	}
 }
