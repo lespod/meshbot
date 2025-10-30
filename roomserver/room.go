@@ -42,12 +42,12 @@ func Init(cfg config.Config) {
 	Users = make(map[*m.Node]*User)
 }
 
-func UserExists(msg m.Message) bool {
+func UserExists(msg m.IncomingMessage) bool {
 	_, ok := Users[msg.FromNode]
 	return ok
 }
 
-func GetUser(msg m.Message) *User {
+func GetUser(msg m.IncomingMessage) *User {
 	if user, ok := Users[msg.FromNode]; ok {
 		return user
 	}

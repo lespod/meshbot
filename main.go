@@ -30,8 +30,8 @@ func main() {
 	cfg := config.GetConfig()
 	roomserver.Init(cfg)
 
-	m.MessageEvents.Subscribe(m.IncomingMessageEvent, incoming)
-	m.MessageEvents.Subscribe(m.OutgoingMessageEvent, outgoing)
+	m.IncomingMessageEvents.Subscribe(m.IncomingMessageEvent, incoming)
+	m.OutgoingMessageEvents.Subscribe(m.OutgoingMessageEvent, outgoing)
 	m.ConnectionEvents.Subscribe(m.ConnectedEvent, connected)
 	m.ConnectionEvents.Subscribe(m.DisconnectedEvent, disconnected)
 
@@ -148,7 +148,7 @@ func disconnected(node m.ConnectedNode) {
 	}
 }
 
-func incoming(message m.Message) {
+func incoming(message m.IncomingMessage) {
 	fmt.Println(message.String())
 
 	if roomserver.UserExists(message) {
@@ -361,6 +361,6 @@ For details, see: github.com/Timendus/meshbot/blob/main/manual.md`)
 	}
 }
 
-func outgoing(message m.Message) {
+func outgoing(message m.OutgoingMessage) {
 	fmt.Println(message.String())
 }

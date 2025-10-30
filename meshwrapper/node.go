@@ -19,7 +19,7 @@ type Node struct {
 	LastHeard        time.Time
 	HopsAway         uint32
 	IsLicensed       bool
-	ReceivedMessages []*Message
+	ReceivedMessages []*IncomingMessage
 	Connected        bool
 	PublicKey        []byte
 	Neighbors        NeighborList
@@ -34,7 +34,7 @@ func NewNode(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) *Node {
 		LongName:         "Unknown node",
 		HwModel:          meshtastic.HardwareModel_UNSET,
 		IsLicensed:       false,
-		ReceivedMessages: make([]*Message, 0),
+		ReceivedMessages: make([]*IncomingMessage, 0),
 		Neighbors:        make(NeighborList, 0),
 	}
 
@@ -53,7 +53,7 @@ func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.Nod
 	n.LastHeard = time.Unix(int64(info.LastHeard), 0)
 
 	if info.Position != nil {
-		n.ReceivedMessages = append(n.ReceivedMessages, &Message{
+		n.ReceivedMessages = append(n.ReceivedMessages, &IncomingMessage{
 			FromNode:      n,
 			ToNode:        &Broadcast,
 			ReceivingNode: connectedNode,
@@ -65,7 +65,7 @@ func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.Nod
 	}
 
 	if info.DeviceMetrics != nil {
-		n.ReceivedMessages = append(n.ReceivedMessages, &Message{
+		n.ReceivedMessages = append(n.ReceivedMessages, &IncomingMessage{
 			FromNode:      n,
 			ToNode:        &Broadcast,
 			ReceivingNode: connectedNode,
@@ -91,7 +91,7 @@ func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.Nod
 
 // If we receive a messages that came from this node, make sure we update our
 // node accordingly and store the message in our list
-func (n *Node) receiveMessage(connectedNode *ConnectedNode, message Message) {
+func (n *Node) receiveMessage(connectedNode *ConnectedNode, message IncomingMessage) {
 	n.ReceivedMessages = append(n.ReceivedMessages, &message)
 	n.LastHeard = message.Timestamp
 	n.HopsAway = message.HopsAway

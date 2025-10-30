@@ -20,7 +20,7 @@ func (n *Neighbor) String() string {
 
 type NeighborList []Neighbor
 
-func NewNeighbourList(connectedNode *ConnectedNode, message Message) NeighborList {
+func NewNeighbourList(connectedNode *ConnectedNode, message IncomingMessage) NeighborList {
 	neighbourList := make([]Neighbor, 0)
 	for _, neighbor := range message.NeighborInfo.Neighbors {
 		node, ok := connectedNode.NodeList.nodes[neighbor.NodeId]

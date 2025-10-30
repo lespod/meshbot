@@ -28,7 +28,7 @@ const (
 )
 
 type EventBody interface {
-	Message | Node | ConnectedNode
+	IncomingMessage | OutgoingMessage | Node | ConnectedNode
 }
 
 type pubSub[T EventBody] struct {
@@ -46,5 +46,6 @@ func (ps *pubSub[T]) publish(topic Event, msg T) {
 }
 
 var ConnectionEvents = pubSub[ConnectedNode]{make(map[Event][]func(ConnectedNode))}
-var MessageEvents = pubSub[Message]{make(map[Event][]func(Message))}
+var IncomingMessageEvents = pubSub[IncomingMessage]{make(map[Event][]func(IncomingMessage))}
+var OutgoingMessageEvents = pubSub[OutgoingMessage]{make(map[Event][]func(OutgoingMessage))}
 var NodeEvents = pubSub[Node]{make(map[Event][]func(Node))}

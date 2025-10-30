@@ -200,7 +200,7 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		n.Channels[meshPacket.Channel] = channel
 	}
 
-	message := Message{
+	message := IncomingMessage{
 		FromNode:      fromNode,
 		ToNode:        toNode,
 		ReceivingNode: n,
@@ -212,5 +212,5 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 	message.ingestMeshPacket(n, meshPacket)
 	fromNode.receiveMessage(n, message)
 
-	MessageEvents.publish(IncomingMessageEvent, message)
+	IncomingMessageEvents.publish(IncomingMessageEvent, message)
 }

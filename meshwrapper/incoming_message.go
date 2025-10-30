@@ -29,7 +29,7 @@ const (
 	DEFAULT_BLOCKING_MESSAGE_TIMEOUT = 60 * time.Second
 )
 
-type Message struct {
+type IncomingMessage struct {
 	FromNode      *Node
 	ToNode        *Node
 	ReceivingNode *ConnectedNode
@@ -52,7 +52,7 @@ type Message struct {
 	Position           *Position
 }
 
-func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *meshtastic.MeshPacket) {
+func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *meshtastic.MeshPacket) {
 	if meshPacket.HopStart == 0 {
 		m.HopsAway = 0
 	} else {
@@ -71,7 +71,7 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 		}
 		m.MessageType = MESSAGE_TYPE_NODE_INFO
 		m.UserInfo = &result
-		MessageEvents.publish(NodeInfoEvent, *m)
+		IncomingMessageEvents.publish(NodeInfoEvent, *m)
 
 	case meshtastic.PortNum_TELEMETRY_APP:
 		result := meshtastic.Telemetry{}
@@ -84,31 +84,31 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 		case *meshtastic.Telemetry_DeviceMetrics:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_DEVICE
 			m.DeviceMetrics = result.GetDeviceMetrics()
-			MessageEvents.publish(DeviceTelemetryEvent, *m)
+			IncomingMessageEvents.publish(DeviceTelemetryEvent, *m)
 		case *meshtastic.Telemetry_EnvironmentMetrics:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_ENVIRONMENT
 			m.EnvironmentMetrics = result.GetEnvironmentMetrics()
-			MessageEvents.publish(EnvironmentTelemetryEvent, *m)
+			IncomingMessageEvents.publish(EnvironmentTelemetryEvent, *m)
 		case *meshtastic.Telemetry_HealthMetrics:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_HEALTH
 			m.HealthMetrics = result.GetHealthMetrics()
-			MessageEvents.publish(HealthTelemetryEvent, *m)
+			IncomingMessageEvents.publish(HealthTelemetryEvent, *m)
 		case *meshtastic.Telemetry_AirQualityMetrics:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_AIR_QUALITY
 			m.AirQualityMetrics = result.GetAirQualityMetrics()
-			MessageEvents.publish(AirQualityTelemetryEvent, *m)
+			IncomingMessageEvents.publish(AirQualityTelemetryEvent, *m)
 		case *meshtastic.Telemetry_PowerMetrics:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_POWER
 			m.PowerMetrics = result.GetPowerMetrics()
-			MessageEvents.publish(PowerTelemetryEvent, *m)
+			IncomingMessageEvents.publish(PowerTelemetryEvent, *m)
 		case *meshtastic.Telemetry_LocalStats:
 			m.MessageType = MESSAGE_TYPE_TELEMETRY_LOCAL_STATS
 			m.LocalStats = result.GetLocalStats()
-			MessageEvents.publish(LocalStatsTelemetryEvent, *m)
+			IncomingMessageEvents.publish(LocalStatsTelemetryEvent, *m)
 		default:
 			log.Println("Warning: Unknown telemetry variant:", result.String())
 		}
-		MessageEvents.publish(TelemetryEvent, *m)
+		IncomingMessageEvents.publish(TelemetryEvent, *m)
 
 	case meshtastic.PortNum_POSITION_APP:
 		result := meshtastic.Position{}
@@ -119,7 +119,7 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 		}
 		m.MessageType = MESSAGE_TYPE_POSITION
 		m.Position = NewPosition(&result)
-		MessageEvents.publish(PositionEvent, *m)
+		IncomingMessageEvents.publish(PositionEvent, *m)
 
 	case meshtastic.PortNum_NEIGHBORINFO_APP:
 		result := meshtastic.NeighborInfo{}
@@ -131,12 +131,12 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 		m.MessageType = MESSAGE_TYPE_NEIGHBOR_INFO
 		m.NeighborInfo = &result
 		helpers.Assert(result.NodeId == meshPacket.From, "I don't understand this format well enough: received "+m.String()+" but it has NodeId "+strconv.Itoa(int(result.NodeId)))
-		MessageEvents.publish(NeighborInfoEvent, *m)
+		IncomingMessageEvents.publish(NeighborInfoEvent, *m)
 
 	case meshtastic.PortNum_TEXT_MESSAGE_APP:
 		m.MessageType = MESSAGE_TYPE_TEXT_MESSAGE
 		m.Text = string(payload)
-		MessageEvents.publish(TextMessageEvent, *m)
+		IncomingMessageEvents.publish(TextMessageEvent, *m)
 
 	case meshtastic.PortNum_ROUTING_APP:
 		if meshPacket.GetDecoded() != nil {
@@ -154,11 +154,11 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 			}
 		}
 		m.MessageType = MESSAGE_TYPE_ROUTING
-		MessageEvents.publish(RoutingEvent, *m)
+		IncomingMessageEvents.publish(RoutingEvent, *m)
 
 	case meshtastic.PortNum_TRACEROUTE_APP:
 		m.MessageType = MESSAGE_TYPE_TRACEROUTE
-		MessageEvents.publish(TraceRouteEvent, *m)
+		IncomingMessageEvents.publish(TraceRouteEvent, *m)
 
 	default:
 		log.Println("Warning: Unknown mesh packet:", meshPacket.String())
@@ -166,7 +166,7 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 	}
 }
 
-func (m Message) ReplyReliably(message string, retries ...int) chan bool {
+func (m IncomingMessage) ReplyReliably(message string, retries ...int) chan bool {
 	ch := make(chan bool)
 	messageTimeout := DEFAULT_BLOCKING_MESSAGE_TIMEOUT
 
@@ -203,7 +203,7 @@ func (m Message) ReplyReliably(message string, retries ...int) chan bool {
 	return ch
 }
 
-func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
+func (m IncomingMessage) Reply(message string, timeout ...time.Duration) chan bool {
 	ch := make(chan bool)
 
 	go func() {
@@ -227,7 +227,7 @@ func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
 	return ch
 }
 
-func (m *Message) send(message string, timeout time.Duration) *acknowledgement {
+func (m *IncomingMessage) send(message string, timeout time.Duration) *acknowledgement {
 	ack := newAcknowledgement(m.FromNode)
 	id, err := m.sendTextMessage(message)
 	if err != nil {
@@ -247,7 +247,7 @@ func (m *Message) send(message string, timeout time.Duration) *acknowledgement {
 	return ack
 }
 
-func (m *Message) sendTextMessage(message string) (uint32, error) {
+func (m *IncomingMessage) sendTextMessage(message string) (uint32, error) {
 	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
 	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
 	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
@@ -264,7 +264,7 @@ func (m *Message) sendTextMessage(message string) (uint32, error) {
 	}
 
 	// Notify the rest of the system that we're sending this message
-	msg := Message{
+	msg := IncomingMessage{
 		FromNode:    m.ReceivingNode.Node,
 		ToNode:      recipient,
 		Text:        message,
@@ -272,47 +272,47 @@ func (m *Message) sendTextMessage(message string) (uint32, error) {
 		Timestamp:   time.Now(),
 		Channel:     m.Channel,
 	}
-	MessageEvents.publish(OutgoingMessageEvent, msg)
+	IncomingMessageEvents.publish(OutgoingMessageEvent, msg)
 
 	// Actually send the message
 	return m.ReceivingNode.SendMessage(channelId, recipient, message, min(m.HopsAway+2, 7))
 }
 
-func (m Message) GetText() string {
+func (m IncomingMessage) GetText() string {
 	return m.Text
 }
 
-func (m Message) IsPrivateMessage() bool {
+func (m IncomingMessage) IsPrivateMessage() bool {
 	return m.ToNode != nil && m.ToNode.Id != Broadcast.Id
 }
 
-func (m Message) GetType() string {
+func (m IncomingMessage) GetType() string {
 	return m.MessageType
 }
 
-func (m Message) GetChannelName() string {
+func (m IncomingMessage) GetChannelName() string {
 	if m.Channel == nil {
 		return "UNKNOWN"
 	}
 	return m.Channel.name
 }
 
-func (m Message) GetSenderNode() *Node {
+func (m IncomingMessage) GetSenderNode() *Node {
 	return m.FromNode
 }
 
-func (m Message) GetReceiverNode() *Node {
+func (m IncomingMessage) GetReceiverNode() *Node {
 	return m.ToNode
 }
 
-func (m Message) FindNode(needle string) *Node {
+func (m IncomingMessage) FindNode(needle string) *Node {
 	if m.ReceivingNode == nil {
 		return nil
 	}
 	return m.ReceivingNode.NodeList.findNode(needle)
 }
 
-func (m Message) String() string {
+func (m IncomingMessage) String() string {
 	direction := ""
 	if m.FromNode != nil {
 		direction += m.FromNode.ColorString()
@@ -340,7 +340,7 @@ func (m Message) String() string {
 	return fmt.Sprintf("%s: \033[1m%s packet\033[0m %s", direction, m.MessageType, m.radioMetricsString())
 }
 
-func (m *Message) radioMetricsString() string {
+func (m *IncomingMessage) radioMetricsString() string {
 	if m.FromNode != nil && m.FromNode.Connected {
 		return ""
 	}
