@@ -140,17 +140,17 @@ Send /help to see all commands`
 			}
 		}
 		if firstPublicRoom == "" {
-			return fmt.Errorf("You're not in any rooms. /join a room." + helpText)
+			return fmt.Errorf("You're not in any rooms. /join a room.%s", helpText)
 		}
 		err := Join(user, firstPublicRoom, "")
 		if err != nil {
-			return fmt.Errorf("You're not in any rooms. /join a room." + helpText)
+			return fmt.Errorf("You're not in any rooms. /join a room.%s", helpText)
 		}
-		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴"+helpText, firstPublicRoom, firstPublicRoom)
+		return fmt.Errorf("You were not in any rooms. I took the liberty of putting you in room %s.\n\n🔴 Note: All messages you send to me from now on will be broadcast to room %s! 🔴%s", firstPublicRoom, firstPublicRoom, helpText)
 	}
 
 	if user.Selected == nil {
-		return fmt.Errorf("You have not selected a room to send to. Please /select a room." + helpText)
+		return fmt.Errorf("You have not selected a room to send to. Please /select a room.%s", helpText)
 	}
 	user.Selected.send(Message{Sender: user, Contents: message})
 	return nil
