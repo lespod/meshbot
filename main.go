@@ -175,15 +175,17 @@ func incoming(message m.Message) {
  - /join <room name> <optional password>
  - /select <room name>
  - /leave <room name>
- 
- <BREAK-MESSAGE>
- 
- Bonus features:
+
+<BREAK-MESSAGE>
+
+Bonus features:
 
  - /neighbours
  - /signal <optional node>
  - /weather
- - /forecast`)
+ - /forecast
+
+For details, see: github.com/Timendus/meshbot/blob/main/manual.md`)
 		return
 	}
 
