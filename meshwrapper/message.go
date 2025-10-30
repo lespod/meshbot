@@ -327,14 +327,11 @@ func (m Message) String() string {
 		return fmt.Sprintf("%s: \033[1mNeighbor list:\033[0m %s %s", direction, m.radioMetricsString(), neighbours)
 	}
 
-	var content string
 	if m.MessageType == MESSAGE_TYPE_TEXT_MESSAGE {
-		content = m.Text
-	} else {
-		content = "\033[1m" + m.MessageType + " packet\033[0m"
+		return fmt.Sprintf("%s: %s\n%s", direction, m.radioMetricsString(), helpers.Indent(m.Text, "\t"))
 	}
 
-	return fmt.Sprintf("%s: %s %s", direction, content, m.radioMetricsString())
+	return fmt.Sprintf("%s: \033[1m%s packet\033[0m %s", direction, m.MessageType, m.radioMetricsString())
 }
 
 func (m *Message) radioMetricsString() string {

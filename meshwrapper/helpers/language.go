@@ -137,3 +137,13 @@ func BreakMessageAt(input string, maxlength int) []string {
 
 	return messages
 }
+
+func Indent(s, prefix string) string {
+	lines := strings.SplitAfter(s, "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = prefix + line
+		}
+	}
+	return strings.Join(lines, "")
+}
