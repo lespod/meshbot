@@ -19,7 +19,7 @@ type ConnectedNode struct {
 	Channels        map[uint32]Channel
 	Node            *Node
 	NodeList        nodeList
-	Acks            map[uint32]chan bool
+	Acks            map[uint32]*acknowledgement
 }
 
 func NewConnectedNode(aquire func() (io.ReadWriteCloser, error)) *ConnectedNode {
@@ -27,7 +27,7 @@ func NewConnectedNode(aquire func() (io.ReadWriteCloser, error)) *ConnectedNode 
 		aquireStream: aquire,
 		Connected:    false,
 		NodeList:     NewNodeList(),
-		Acks:         make(map[uint32]chan bool),
+		Acks:         make(map[uint32]*acknowledgement),
 		Channels:     make(map[uint32]Channel),
 		Node: &Node{
 			ShortName: "UNKN",

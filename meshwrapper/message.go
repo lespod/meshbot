@@ -146,13 +146,10 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 				log.Println("Error: Could not unmarshall Routing mesh packet: " + err.Error())
 				return
 			}
-			if result.GetErrorReason() != meshtastic.Routing_NONE {
-				log.Println("Bad acknowledgement: " + meshtastic.Routing_Error_name[int32(result.GetErrorReason())])
-			}
 			messageId := meshPacket.GetDecoded().RequestId
-			if connectedNode.Acks[messageId] != nil {
-				connectedNode.Acks[messageId] <- result.GetErrorReason() == meshtastic.Routing_NONE
-				close(connectedNode.Acks[messageId])
+			ack, ok := connectedNode.Acks[messageId]
+			if ok {
+				ack.receive(m.FromNode, result.GetErrorReason())
 				delete(connectedNode.Acks, messageId)
 			}
 		}
@@ -171,29 +168,38 @@ func (m *Message) ingestMeshPacket(connectedNode *ConnectedNode, meshPacket *mes
 
 func (m Message) ReplyReliably(message string, retries ...int) chan bool {
 	ch := make(chan bool)
-	attempt := 1
+	messageTimeout := DEFAULT_BLOCKING_MESSAGE_TIMEOUT
+
 	maxAttempts := 3
 	if len(retries) > 0 {
 		maxAttempts = retries[0]
 	}
+
 	go func() {
-		delivered := false
-		for {
-			log.Printf("Attempt %d to send message...\n", attempt)
-			delivered = <-m.Reply(message)
-			if delivered {
-				log.Println("Delivered successfully")
-				break
+		for _, msg := range helpers.BreakMessage(message) {
+			attempt := 1
+			delivered := false
+			for attempt <= maxAttempts {
+				ack := m.send(msg, messageTimeout)
+				delivered = <-ack.delivered
+				if delivered {
+					break
+				}
+				attempt++
 			}
-			if attempt == maxAttempts {
-				log.Printf("Made %d attempts to send message, aborting\n", attempt)
-				break
+			if !delivered {
+				// Failed to deliver at least part of the message, abort
+				ch <- false
+				close(ch)
+				return
 			}
-			attempt++
 		}
-		ch <- delivered
+
+		// Made it through all parts of the message successfully
+		ch <- true
 		close(ch)
 	}()
+
 	return ch
 }
 
@@ -207,8 +213,9 @@ func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
 		}
 
 		for _, msg := range helpers.BreakMessage(message) {
-			ok := <-m.send(msg, messageTimeout)
-			if !ok {
+			ack := m.send(msg, messageTimeout)
+			delivered := <-ack.delivered
+			if !delivered {
 				ch <- false
 				return
 			}
@@ -220,25 +227,24 @@ func (m Message) Reply(message string, timeout ...time.Duration) chan bool {
 	return ch
 }
 
-func (m *Message) send(message string, timeout time.Duration) chan bool {
-	ch := make(chan bool)
+func (m *Message) send(message string, timeout time.Duration) *acknowledgement {
+	ack := newAcknowledgement(m.FromNode)
 	id, err := m.sendTextMessage(message)
 	if err != nil {
+		// Give user feedback, also when acknowledgements are not verbose,
+		// because there's a good chance that the error we get here is due to
+		// the user's configuration choices.
 		log.Println("Could not send message:", err)
-		ch <- false
-		close(ch)
-		return ch
+		ack.error(err)
+		return ack
 	}
-	m.ReceivingNode.Acks[id] = ch
+	m.ReceivingNode.Acks[id] = ack
 	go func() {
 		time.Sleep(timeout)
-		if m.ReceivingNode.Acks[id] != nil {
-			ch <- false
-			close(ch)
-			delete(m.ReceivingNode.Acks, id)
-		}
+		ack.timeout()
+		delete(m.ReceivingNode.Acks, id)
 	}()
-	return ch
+	return ack
 }
 
 func (m *Message) sendTextMessage(message string) (uint32, error) {
