@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -109,10 +111,15 @@ var announcersRunning bool
 func connected(node m.ConnectedNode) {
 	log.Println("Connected to " + node.String())
 	// log.Println("Node list: \n" + node.NodeList.String())
-	// log.Println("Channel list:")
-	// for _, channel := range node.Channels {
-	// 	log.Println("   " + channel.String())
-	// }
+
+	// Inform user of available channels
+	log.Println("Channel list:")
+	keys := slices.Collect(maps.Keys(node.Channels))
+	slices.Sort(keys)
+	for _, key := range keys {
+		channel := node.Channels[key]
+		log.Println("   " + channel.String())
+	}
 
 	// Start announcer service(s)
 	if !announcersRunning {

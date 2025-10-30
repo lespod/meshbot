@@ -224,10 +224,18 @@ func (m IncomingMessage) String() string {
 	} else {
 		direction += "No node"
 	}
-	if m.ToNode != nil {
-		direction += " -> " + m.ToNode.ColorString()
+	if m.IsPrivateMessage() {
+		if m.ToNode != nil {
+			direction += " -> " + m.ToNode.ColorString()
+		} else {
+			direction += " -> No node"
+		}
 	} else {
-		direction += " -> No node"
+		if m.Channel != nil {
+			direction += " -> Channel " + m.Channel.name
+		} else {
+			direction += " -> Unknown channel"
+		}
 	}
 
 	if m.MessageType == MESSAGE_TYPE_NEIGHBOR_INFO {

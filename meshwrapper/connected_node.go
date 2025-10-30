@@ -154,8 +154,10 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 		case *meshtastic.FromRadio_NodeInfo:
 			n.parseNodeInfo(packet.GetNodeInfo())
 		case *meshtastic.FromRadio_Channel:
-			channel := NewChannel(packet.GetChannel())
-			n.Channels[channel.id] = channel
+			channel := packet.GetChannel()
+			if channel != nil && channel.Index >= 0 && channel.GetRole() != meshtastic.Channel_DISABLED {
+				n.Channels[uint32(channel.Index)] = NewChannel(channel)
+			}
 		case *meshtastic.FromRadio_Packet:
 			n.parseMeshPacket(packet.GetPacket())
 		case *meshtastic.FromRadio_Config:
@@ -204,7 +206,8 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 	channel, ok := n.Channels[meshPacket.Channel]
 	if !ok {
 		channel = Channel{
-			id: meshPacket.Channel,
+			id:   meshPacket.Channel,
+			name: "Unknown",
 		}
 		n.Channels[meshPacket.Channel] = channel
 	}
