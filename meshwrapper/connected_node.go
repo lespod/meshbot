@@ -38,6 +38,15 @@ func NewConnectedNode(aquire func() (io.ReadWriteCloser, error)) *ConnectedNode 
 	}
 }
 
+func (n *ConnectedNode) FindChannel(name string) (*Channel, bool) {
+	for _, channel := range n.Channels {
+		if channel.name == name {
+			return &channel, true
+		}
+	}
+	return nil, false
+}
+
 func (n *ConnectedNode) Connect() error {
 	// Connect to the actual device
 	stream, err := n.aquireStream()

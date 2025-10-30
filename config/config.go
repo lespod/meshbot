@@ -44,9 +44,9 @@ type Room struct {
 
 type Announcement struct {
 	Message      string `json:"message"`
-	Channel      uint32 `json:"channel"`
-	DelayMinutes uint32 `json:"delayMinutes"`
-	MaxHops      uint32 `json:"maxHops"`
+	Channel      string `json:"channel"`
+	DelayMinutes int    `json:"delayMinutes"`
+	MaxHops      int    `json:"maxHops"`
 }
 
 var config Config

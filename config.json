@@ -30,7 +30,7 @@
     "announcements": [
         {
             "message": "🤖👋 Welcome to our mesh!",
-            "channel": 0,
+            "channel": "YourChannel",
             "delayMinutes": 1440,
             "maxHops": 1
         }

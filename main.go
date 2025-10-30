@@ -117,13 +117,15 @@ func connected(node m.ConnectedNode) {
 	// Start announcer service(s)
 	if !announcersRunning {
 		for _, announcement := range config.GetConfig().Announcements {
+			channel, ok := node.FindChannel(announcement.Channel)
+			if !ok {
+				log.Printf("Announcer: Can't find channel %s\n", announcement.Channel)
+				continue
+			}
 			go func() {
 				for {
-					log.Println("Announcer: broadcasting to channel", announcement.Channel, "-", announcement.Message)
-					_, err := node.SendMessage(announcement.Channel, &m.Broadcast, announcement.Message, announcement.MaxHops)
-					if err != nil {
-						log.Println("Could not announce:", err)
-					}
+					log.Println("Announcement time!")
+					m.NewOutgoingChannelMessage(announcement.Message, &node, channel, announcement.MaxHops).Send()
 					time.Sleep(time.Duration(announcement.DelayMinutes) * time.Minute)
 				}
 			}()
