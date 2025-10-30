@@ -111,10 +111,6 @@ func (m *OutgoingMessage) SendReliably() chan bool {
 }
 
 func (m *OutgoingMessage) send(message string) *acknowledgement {
-	// Notify the rest of the system that we're sending this message
-	m.CurrentMessagePart = message
-	OutgoingMessageEvents.publish(OutgoingMessageEvent, *m)
-
 	var channelId uint32
 	if m.isPrivateMessage() {
 		channelId = 0
@@ -141,6 +137,10 @@ func (m *OutgoingMessage) send(message string) *acknowledgement {
 		ack.timeout()
 		delete(m.ReceivingNode.Acks, id)
 	}()
+
+	// Notify the rest of the system that we've sent this message
+	m.CurrentMessagePart = message
+	OutgoingMessageEvents.publish(OutgoingMessageEvent, *m)
 
 	return ack
 }
