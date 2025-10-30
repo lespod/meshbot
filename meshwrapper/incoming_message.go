@@ -166,116 +166,21 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 	}
 }
 
-func (m IncomingMessage) ReplyReliably(message string, retries ...int) chan bool {
-	ch := make(chan bool)
-	messageTimeout := DEFAULT_BLOCKING_MESSAGE_TIMEOUT
-
-	maxAttempts := 3
-	if len(retries) > 0 {
-		maxAttempts = retries[0]
-	}
-
-	go func() {
-		for _, msg := range helpers.BreakMessage(message) {
-			attempt := 1
-			delivered := false
-			for attempt <= maxAttempts {
-				ack := m.send(msg, messageTimeout)
-				delivered = <-ack.delivered
-				if delivered {
-					break
-				}
-				attempt++
-			}
-			if !delivered {
-				// Failed to deliver at least part of the message, abort
-				ch <- false
-				close(ch)
-				return
-			}
-		}
-
-		// Made it through all parts of the message successfully
-		ch <- true
-		close(ch)
-	}()
-
-	return ch
+func (m *IncomingMessage) Reply(message string) chan bool {
+	return m.newOutgoingMessage(message).Send()
 }
 
-func (m IncomingMessage) Reply(message string, timeout ...time.Duration) chan bool {
-	ch := make(chan bool)
-
-	go func() {
-		messageTimeout := DEFAULT_BLOCKING_MESSAGE_TIMEOUT
-		if len(timeout) > 0 {
-			messageTimeout = timeout[0]
-		}
-
-		for _, msg := range helpers.BreakMessage(message) {
-			ack := m.send(msg, messageTimeout)
-			delivered := <-ack.delivered
-			if !delivered {
-				ch <- false
-				return
-			}
-		}
-
-		ch <- true
-	}()
-
-	return ch
+func (m *IncomingMessage) ReplyReliably(message string) chan bool {
+	return m.newOutgoingMessage(message).SendReliably()
 }
 
-func (m *IncomingMessage) send(message string, timeout time.Duration) *acknowledgement {
-	ack := newAcknowledgement(m.FromNode)
-	id, err := m.sendTextMessage(message)
-	if err != nil {
-		// Give user feedback, also when acknowledgements are not verbose,
-		// because there's a good chance that the error we get here is due to
-		// the user's configuration choices.
-		log.Println("Could not send message:", err)
-		ack.error(err)
-		return ack
+func (m *IncomingMessage) newOutgoingMessage(message string) *OutgoingMessage {
+	hops := min(int(m.HopsAway)+2, 7)
+	if m.IsPrivateMessage() {
+		return NewOutgoingDirectMessage(message, m.ReceivingNode, m.FromNode, hops)
+	} else {
+		return NewOutgoingChannelMessage(message, m.ReceivingNode, m.Channel, hops)
 	}
-	m.ReceivingNode.Acks[id] = ack
-	go func() {
-		time.Sleep(timeout)
-		ack.timeout()
-		delete(m.ReceivingNode.Acks, id)
-	}()
-	return ack
-}
-
-func (m *IncomingMessage) sendTextMessage(message string) (uint32, error) {
-	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
-	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
-	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
-
-	// If message was sent to a channel, reply in the same channel instead of
-	// privately.
-	recipient := m.FromNode
-	if m.ToNode.Id == Broadcast.Id {
-		recipient = &Broadcast
-	}
-	channelId := uint32(0)
-	if m.Channel != nil {
-		channelId = m.Channel.id
-	}
-
-	// Notify the rest of the system that we're sending this message
-	msg := IncomingMessage{
-		FromNode:    m.ReceivingNode.Node,
-		ToNode:      recipient,
-		Text:        message,
-		MessageType: MESSAGE_TYPE_TEXT_MESSAGE,
-		Timestamp:   time.Now(),
-		Channel:     m.Channel,
-	}
-	IncomingMessageEvents.publish(OutgoingMessageEvent, msg)
-
-	// Actually send the message
-	return m.ReceivingNode.SendMessage(channelId, recipient, message, min(m.HopsAway+2, 7))
 }
 
 func (m IncomingMessage) GetText() string {

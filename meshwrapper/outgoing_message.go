@@ -17,9 +17,10 @@ type OutgoingMessage struct {
 	ReceivingNode *ConnectedNode
 	Text          string
 
-	MaxHops int
-	Retries int
-	Timeout time.Duration
+	MaxHops            int
+	Retries            int
+	Timeout            time.Duration
+	CurrentMessagePart string
 }
 
 func NewOutgoingDirectMessage(message string, from *ConnectedNode, to *Node, hops int) *OutgoingMessage {
@@ -111,6 +112,7 @@ func (m *OutgoingMessage) SendReliably() chan bool {
 
 func (m *OutgoingMessage) send(message string) *acknowledgement {
 	// Notify the rest of the system that we're sending this message
+	m.CurrentMessagePart = message
 	OutgoingMessageEvents.publish(OutgoingMessageEvent, *m)
 
 	var channelId uint32
@@ -121,7 +123,7 @@ func (m *OutgoingMessage) send(message string) *acknowledgement {
 	}
 
 	// Actually send the message
-	ack := newAcknowledgement(m.FromNode)
+	ack := newAcknowledgement(m.ToNode)
 	id, err := m.ReceivingNode.SendMessage(channelId, m.ToNode, message, uint32(m.MaxHops))
 	if err != nil {
 		// Give user feedback, also when acknowledgements are not verbose,
@@ -150,9 +152,17 @@ func (m *OutgoingMessage) isPrivateMessage() bool {
 
 func (m *OutgoingMessage) delivered(ack *acknowledgement) bool {
 	if m.isPrivateMessage() {
+		// A private message is delivered when it reaches its destination
 		return <-ack.delivered
 	} else {
-		return <-ack.repeated
+		// A channel message is delivered when it reaches its destination or we
+		// hear it repeated somewhere. Either is fine.
+		select {
+		case delivered := <-ack.delivered:
+			return delivered
+		case delivered := <-ack.repeated:
+			return delivered
+		}
 	}
 }
 
@@ -167,5 +177,9 @@ func (m *OutgoingMessage) String() string {
 		direction += " -> Channel " + m.Channel.name
 	}
 
-	return fmt.Sprintf("%s:\n%s", direction, helpers.Indent(m.Text, "\t"))
+	contents := m.CurrentMessagePart
+	if contents == "" {
+		contents = m.Text
+	}
+	return fmt.Sprintf("%s:\n%s", direction, helpers.Indent(contents, "\t"))
 }
