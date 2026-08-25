@@ -9,6 +9,7 @@ import (
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
 	"github.com/timendus/meshbot/config"
+	"google.golang.org/protobuf/proto"
 )
 
 type ConnectedNode struct {
@@ -31,7 +32,7 @@ func NewConnectedNode(aquire func() (io.ReadWriteCloser, error)) *ConnectedNode 
 		Channels:     make(map[uint32]Channel),
 		Node: &Node{
 			ShortName: "UNKN",
-			LongName:  "Unknown node",
+			LongName:  "Nieznany node",
 			Id:        0,
 			Connected: true,
 		},
@@ -47,23 +48,27 @@ func (n *ConnectedNode) FindChannel(name string) (*Channel, bool) {
 	return nil, false
 }
 
+func (n *ConnectedNode) FindNodeById(id uint32) *Node {
+	return n.NodeList.nodes[id]
+}
+
 func (n *ConnectedNode) Connect() error {
-	// Connect to the actual device
+	// Połącz z właściwym urządzeniem.
 	stream, err := n.aquireStream()
 	if err != nil {
 		return err
 	}
 	n.stream = stream
 
-	// Spin up a goroutine to read messages from the device
+	// Uruchom goroutine czytającą wiadomości z urządzenia.
 	go n.readMessages(n.stream)
 
-	// Wake the device
+	// Wybudź urządzenie.
 	if err := wakeDevice(n.stream); err != nil {
 		return err
 	}
 
-	// Tell the device that we can speak ProtoBuf
+	// Poinformuj urządzenie, że obsługujemy ProtoBuf.
 	if err := writeMessage(n.stream, &meshtastic.ToRadio{
 		PayloadVariant: &meshtastic.ToRadio_WantConfigId{
 			WantConfigId: 1,
@@ -84,7 +89,7 @@ func (n *ConnectedNode) String() string {
 	return n.Node.ColorString()
 }
 
-func (n *ConnectedNode) SendMessage(channel uint32, recipient *Node, message string, hopLimit uint32) (uint32, error) {
+func (n *ConnectedNode) SendMessage(channel uint32, recipient *Node, message string, hopLimit uint32, replyId uint32) (uint32, error) {
 	id := rand.Uint32()
 	err := n.SendPacket(meshtastic.ToRadio_Packet{
 		Packet: &meshtastic.MeshPacket{
@@ -99,6 +104,41 @@ func (n *ConnectedNode) SendMessage(channel uint32, recipient *Node, message str
 				Decoded: &meshtastic.Data{
 					Portnum: meshtastic.PortNum_TEXT_MESSAGE_APP,
 					Payload: []byte(message),
+					ReplyId: replyId,
+				},
+			},
+		},
+	})
+	return id, err
+}
+
+func (n *ConnectedNode) SendTraceroute(recipient *Node, hopLimit uint32) (uint32, error) {
+	if recipient == nil {
+		return 0, fmt.Errorf("nieznany odbiorca traceroute")
+	}
+	id := rand.Uint32()
+	payload, err := proto.Marshal(&meshtastic.RouteDiscovery{})
+	if err != nil {
+		return 0, err
+	}
+
+	err = n.SendPacket(meshtastic.ToRadio_Packet{
+		Packet: &meshtastic.MeshPacket{
+			Id:       id,
+			Channel:  0,
+			To:       recipient.Id,
+			From:     n.Node.Id,
+			HopLimit: hopLimit,
+			WantAck:  true,
+			Priority: meshtastic.MeshPacket_Priority(meshtastic.MeshPacket_Priority_value["RELIABLE"]),
+			PayloadVariant: &meshtastic.MeshPacket_Decoded{
+				Decoded: &meshtastic.Data{
+					Portnum:      meshtastic.PortNum_TRACEROUTE_APP,
+					Payload:      payload,
+					WantResponse: true,
+					Dest:         recipient.Id,
+					Source:       n.Node.Id,
+					RequestId:    id,
 				},
 			},
 		},
@@ -107,19 +147,16 @@ func (n *ConnectedNode) SendMessage(channel uint32, recipient *Node, message str
 }
 
 func (n *ConnectedNode) SendPacket(message meshtastic.ToRadio_Packet) error {
-	// Only transmit anything if the configuration allows it or the
-	// configuration has this particular node id as the exception. Otherwise,
-	// just silently drop the transmission.
+	// Nadawaj tylko wtedy, gdy konfiguracja na to pozwala albo wskazuje tego noda jako wyjątek.
 	cfg := config.GetConfig()
 	nodeAllowed := cfg.Settings.TransmitExceptionNodeId != 0 && message.Packet.To == cfg.Settings.TransmitExceptionNodeId
 	if !(cfg.Settings.AllowTransmit || nodeAllowed) {
-		return fmt.Errorf("not allowed to transmit by config.json")
+		return fmt.Errorf("nadawanie zablokowane przez config.json")
 	}
 
-	// If message is a message in a channel, but the configuration does not
-	// allow this, again just drop the transmission
+	// Jeśli to wiadomość kanałowa, konfiguracja musi osobno pozwalać na nadawanie do kanałów.
 	if !cfg.Settings.AllowTransmitToChannels && message.Packet.To == Broadcast.Id {
-		return fmt.Errorf("not allowed to transmit in a channel by config.json")
+		return fmt.Errorf("nadawanie do kanału zablokowane przez config.json")
 	}
 
 	if err := writeMessage(n.stream, &meshtastic.ToRadio{
@@ -134,9 +171,9 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 	for {
 		packet, err := readMessage(stream)
 		if err != nil {
-			log.Println("Error: " + err.Error())
+			log.Println("Błąd: " + err.Error())
 			if err == io.EOF {
-				log.Println("EOF probably means the device has disconnected. Stopping execution.")
+				log.Println("EOF prawdopodobnie oznacza rozłączenie urządzenia. Zatrzymuję obsługę połączenia.")
 				return n.Close()
 			}
 			continue
@@ -164,15 +201,15 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 		case *meshtastic.FromRadio_ModuleConfig:
 		case *meshtastic.FromRadio_FileInfo:
 		case *meshtastic.FromRadio_QueueStatus:
-			// Silently ignore these packets
+			// Te pakiety ignorujemy świadomie.
 		default:
-			log.Println("Unhandled message:" + packet.String())
+			log.Println("Nieobsłużona wiadomość:" + packet.String())
 		}
 	}
 }
 
 func (n *ConnectedNode) parseNodeInfo(nodeInfo *meshtastic.NodeInfo) {
-	// Create or update the node that this info relates to
+	// Utwórz albo zaktualizuj noda, którego dotyczy informacja.
 	relevantNode, exists := n.NodeList.nodes[nodeInfo.Num]
 	if !exists {
 		n.NodeList.nodes[nodeInfo.Num] = NewNode(n, nodeInfo)
@@ -182,8 +219,8 @@ func (n *ConnectedNode) parseNodeInfo(nodeInfo *meshtastic.NodeInfo) {
 }
 
 func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
-	// Ignore broken, encrypted or empty packets
-	if meshPacket == nil || meshPacket.GetDecoded() == nil || meshPacket.GetDecoded().GetPayload() == nil {
+	// Ignoruj uszkodzone albo zaszyfrowane pakiety.
+	if meshPacket == nil || meshPacket.GetDecoded() == nil {
 		return
 	}
 
@@ -207,7 +244,7 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 	if !ok {
 		channel = Channel{
 			id:   meshPacket.Channel,
-			name: "Unknown",
+			name: "Nieznany",
 		}
 		n.Channels[meshPacket.Channel] = channel
 	}
@@ -220,6 +257,7 @@ func (n *ConnectedNode) parseMeshPacket(meshPacket *meshtastic.MeshPacket) {
 		Timestamp:     time.Unix(int64(meshPacket.RxTime), 0),
 		MessageType:   MESSAGE_TYPE_OTHER,
 		Snr:           meshPacket.RxSnr,
+		PacketId:      meshPacket.Id,
 	}
 	message.ingestMeshPacket(n, meshPacket)
 	fromNode.receiveMessage(n, message)

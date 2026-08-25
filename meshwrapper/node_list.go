@@ -19,13 +19,13 @@ type nodeList struct {
 var Broadcast = Node{
 	Id:        0xFFFFFFFF,
 	ShortName: "CAST",
-	LongName:  "Everyone",
+	LongName:  "Wszyscy",
 }
 
 var Unknown = Node{
 	Id:        0x00000000,
 	ShortName: "UNKN",
-	LongName:  "Unknown",
+	LongName:  "Nieznany",
 }
 
 func NewNodeList() nodeList {
@@ -58,7 +58,7 @@ func (n *nodeList) Neighbours() string {
 
 		if nodeIsValid && nodeIsNeighbour && nodeHeardInLastHour && !node.IsSelf() {
 			nodes += " - " + node.String()
-			nodes += fmt.Sprintf(" - %s ago", helpers.TimeAgo(node.LastHeard))
+			nodes += fmt.Sprintf(" - %s temu", helpers.TimeAgo(node.LastHeard))
 			if node.Snr != 0 {
 				nodes += fmt.Sprintf(", %.2fdB", node.Snr)
 			}
@@ -86,7 +86,7 @@ func (n *nodeList) findNode(needle string) *Node {
 	needle = strings.TrimSpace(needle)
 	needleBytes := []byte(needle)
 
-	// Check if we have a specific, full hexadecimal id
+	// Sprawdź pełny identyfikator szesnastkowy.
 	fullHexId, _ := regexp.Compile("![0-9a-fA-F]{8}")
 	if fullHexId.Match(needleBytes) {
 		id, err := strconv.ParseUint(needle[1:], 16, 32)
@@ -104,14 +104,14 @@ func (n *nodeList) findNode(needle string) *Node {
 		}
 	}
 
-	// Check if we have a shortName
+	// Sprawdź short name.
 	for _, node := range n.nodes {
 		if strings.EqualFold(node.ShortName, needle) {
 			return node
 		}
 	}
 
-	// Check if we have a decimal id
+	// Sprawdź identyfikator dziesiętny.
 	numericId, _ := regexp.Compile("[0-9]+")
 	if numericId.Match(needleBytes) {
 		id, err := strconv.ParseUint(needle, 10, 32)
@@ -121,7 +121,7 @@ func (n *nodeList) findNode(needle string) *Node {
 		}
 	}
 
-	// Check if we have an abbreviated hexadecimal id
+	// Sprawdź skrócony identyfikator szesnastkowy.
 	abbreviatedHexId, _ := regexp.Compile("[0-9a-fA-F]{4}")
 	if abbreviatedHexId.Match(needleBytes) {
 		for _, node := range n.nodes {
@@ -131,7 +131,7 @@ func (n *nodeList) findNode(needle string) *Node {
 		}
 	}
 
-	// Check is needle is a substring of a longname
+	// Sprawdź, czy szukana fraza jest częścią long name.
 	for _, node := range n.nodes {
 		if strings.Contains(strings.ToUpper(node.LongName), strings.ToUpper(needle)) {
 			return node

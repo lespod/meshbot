@@ -19,7 +19,7 @@ type acknowledgement struct {
 	status    string
 }
 
-// Create a new acknowledgement for a message we're sending to the given node
+// Utwórz potwierdzenie dla wiadomości wysyłanej do wskazanego noda.
 func newAcknowledgement(node *Node) *acknowledgement {
 	ack := acknowledgement{
 		id:        rand.Int32(),
@@ -27,7 +27,7 @@ func newAcknowledgement(node *Node) *acknowledgement {
 		repeated:  make(chan bool, 1),
 		recipient: node,
 		waiting:   atomic.Bool{},
-		status:    "Waiting",
+		status:    "Oczekiwanie",
 	}
 	ack.waiting.Store(true)
 	ack.spam()
@@ -37,32 +37,32 @@ func newAcknowledgement(node *Node) *acknowledgement {
 func (a *acknowledgement) receive(node *Node, err meshtastic.Routing_Error) {
 	if !a.waiting.Load() {
 		if VERBOSE {
-			log.Printf("Acknowledgement %d to %s: Received packed, but was no longer waiting\n", a.id, a.recipient.ColorString())
+			log.Printf("Potwierdzenie %d do %s: odebrano pakiet, ale już nie oczekiwano\n", a.id, a.recipient.ColorString())
 		}
 		return
 	}
 	if err != meshtastic.Routing_NONE {
-		a.negative("Routing error: " + meshtastic.Routing_Error_name[int32(err)])
+		a.negative("Błąd routingu: " + meshtastic.Routing_Error_name[int32(err)])
 		return
 	}
 	if node.Id == a.recipient.Id {
-		a.status = "Delivered"
+		a.status = "Doręczono"
 		a.delivered <- true
 		a.repeated <- false
 		a.close()
 	} else {
-		a.status = "Repeated"
+		a.status = "Powtórzono"
 		a.repeated <- true
 		a.spam()
 	}
 }
 
 func (a *acknowledgement) timeout() {
-	a.negative("Timed out")
+	a.negative("Przekroczono czas oczekiwania")
 }
 
 func (a *acknowledgement) error(err error) {
-	a.negative("Could not send message: " + err.Error())
+	a.negative("Nie udało się wysłać wiadomości: " + err.Error())
 }
 
 func (a *acknowledgement) negative(reason string) {
@@ -84,6 +84,6 @@ func (a *acknowledgement) close() {
 
 func (a *acknowledgement) spam() {
 	if VERBOSE {
-		log.Printf("Acknowledgement %d to %s: %s\n", a.id, a.recipient.ColorString(), a.status)
+		log.Printf("Potwierdzenie %d do %s: %s\n", a.id, a.recipient.ColorString(), a.status)
 	}
 }

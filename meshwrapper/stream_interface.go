@@ -19,27 +19,24 @@ const (
 )
 
 func wakeDevice(writer io.Writer) error {
-	// Comments copied from Python implementation
+	// Komentarze bazują na implementacji w Pythonie:
 	// https://github.com/meshtastic/python/blob/0bb4b31b6a147134c57fb720492c8719c037d195/meshtastic/stream_interface.py#L55-L75
 
-	// Send some bogus UART characters to force a sleeping device to wake, and
-	// if the reading statemachine was parsing a bad packet make sure
-	// we write enough start bytes to force it to resync (we don't use START1
-	// because we want to ensure it is looking for START1)
+	// Wyślij puste znaki UART, żeby wybudzić urządzenie i zsynchronizować parser pakietów.
 	bytes := make([]byte, 32)
 	_, err := writer.Write(bytes)
 	if err != nil {
 		return err
 	}
 
-	// wait 100ms to give device time to start running
+	// Poczekaj 100 ms, żeby urządzenie zdążyło ruszyć.
 	time.Sleep(100 * time.Millisecond)
 	return nil
 }
 
 func writeMessage(writer io.Writer, message *meshtastic.ToRadio) error {
 	if DEBUGGING {
-		log.Println("\033[90mSending: " + message.String() + "\033[0m")
+		log.Println("\033[90mWysyłam: " + message.String() + "\033[0m")
 	}
 
 	bytes, err := proto.Marshal(message)
@@ -72,7 +69,7 @@ searching:
 			return nil, err
 		}
 		if n == 0 {
-			return nil, errors.New("unexpected end of file")
+			return nil, errors.New("nieoczekiwany koniec pliku")
 		}
 
 		switch state {
@@ -80,7 +77,7 @@ searching:
 			if buffer[0] == START1 {
 				state = 1
 			} else if DEBUGGING {
-				// Handle any other bytes as text debug output
+				// Pozostałe bajty potraktuj jako debug tekstowy.
 				fmt.Print(buffer)
 			}
 		case 1:
@@ -99,7 +96,7 @@ searching:
 		case 3:
 			length |= int(buffer[0]) & 0xFF
 			if length > MAX_SIZE {
-				log.Printf("Invalid packet size: %d\n", length)
+				log.Printf("Nieprawidłowy rozmiar pakietu: %d\n", length)
 				if DEBUGGING {
 					fmt.Print([]byte{START1, START2, byte(length >> 8)})
 					fmt.Print(buffer)
@@ -119,7 +116,7 @@ searching:
 		return nil, err
 	}
 	if n != length {
-		return nil, errors.New("unexpected end of file")
+		return nil, errors.New("nieoczekiwany koniec pliku")
 	}
 
 	result := meshtastic.FromRadio{}
@@ -128,7 +125,7 @@ searching:
 		return nil, err
 	}
 	if DEBUGGING {
-		log.Println("\033[90mReceived: " + result.String() + "\033[0m")
+		log.Println("\033[90mOdebrano: " + result.String() + "\033[0m")
 	}
 	return &result, nil
 }

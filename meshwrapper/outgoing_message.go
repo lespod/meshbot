@@ -20,6 +20,7 @@ type OutgoingMessage struct {
 	MaxHops            int
 	Retries            int
 	Timeout            time.Duration
+	ReplyId            uint32
 	CurrentMessagePart string
 }
 
@@ -50,11 +51,11 @@ func NewOutgoingChannelMessage(message string, from *ConnectedNode, to *Channel,
 	}
 }
 
-// Regular, boring old send
+// Zwykła wysyłka.
 func (m *OutgoingMessage) Send() chan bool {
-	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
-	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
-	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
+	helpers.Assert(m.ReceivingNode != nil, "Nie można wysłać wiadomości bez urządzenia wysyłającego")
+	helpers.Assert(m.FromNode != nil, "Nie można wysłać wiadomości do nieznanego noda")
+	helpers.Assert(m.ToNode != nil, "Nie można wysłać wiadomości od nieznanego noda")
 
 	ch := make(chan bool)
 
@@ -74,11 +75,11 @@ func (m *OutgoingMessage) Send() chan bool {
 	return ch
 }
 
-// Send with retries on delivery failure
+// Wysyłka z ponowieniami po błędzie doręczenia.
 func (m *OutgoingMessage) SendReliably() chan bool {
-	helpers.Assert(m.ReceivingNode != nil, "Can't send a message without knowing through which device to send it")
-	helpers.Assert(m.FromNode != nil, "Can't send a message to an unknown node")
-	helpers.Assert(m.ToNode != nil, "Can't send a message from an unknown node")
+	helpers.Assert(m.ReceivingNode != nil, "Nie można wysłać wiadomości bez urządzenia wysyłającego")
+	helpers.Assert(m.FromNode != nil, "Nie można wysłać wiadomości do nieznanego noda")
+	helpers.Assert(m.ToNode != nil, "Nie można wysłać wiadomości od nieznanego noda")
 
 	ch := make(chan bool)
 
@@ -95,14 +96,14 @@ func (m *OutgoingMessage) SendReliably() chan bool {
 				attempt++
 			}
 			if !delivered {
-				// Failed to deliver at least part of the message, abort
+				// Nie udało się doręczyć co najmniej jednej części, więc przerywamy.
 				ch <- false
 				close(ch)
 				return
 			}
 		}
 
-		// Made it through all parts of the message successfully
+		// Wszystkie części wiadomości zostały obsłużone.
 		ch <- true
 		close(ch)
 	}()
@@ -118,27 +119,25 @@ func (m *OutgoingMessage) send(message string) *acknowledgement {
 		channelId = m.Channel.id
 	}
 
-	// Actually send the message
+	// Wyślij wiadomość.
 	ack := newAcknowledgement(m.ToNode)
-	id, err := m.ReceivingNode.SendMessage(channelId, m.ToNode, message, uint32(m.MaxHops))
+	id, err := m.ReceivingNode.SendMessage(channelId, m.ToNode, message, uint32(m.MaxHops), m.ReplyId)
 	if err != nil {
-		// Give user feedback, also when acknowledgements are not verbose,
-		// because there's a good chance that the error we get here is due to
-		// the user's configuration choices.
-		log.Println("Could not send message:", err)
+		// Loguj też przy cichych potwierdzeniach, bo częstą przyczyną jest konfiguracja.
+		log.Println("Nie udało się wysłać wiadomości:", err)
 		ack.error(err)
 		return ack
 	}
 	m.ReceivingNode.Acks[id] = ack
 
-	// Make the acknowledgement timeout work
+	// Uruchom timeout potwierdzenia.
 	go func() {
 		time.Sleep(m.Timeout)
 		ack.timeout()
 		delete(m.ReceivingNode.Acks, id)
 	}()
 
-	// Notify the rest of the system that we've sent this message
+	// Powiadom resztę systemu o wysłanej wiadomości.
 	m.CurrentMessagePart = message
 	OutgoingMessageEvents.publish(OutgoingMessageEvent, *m)
 
@@ -146,17 +145,16 @@ func (m *OutgoingMessage) send(message string) *acknowledgement {
 }
 
 func (m *OutgoingMessage) isPrivateMessage() bool {
-	helpers.Assert(m.ToNode != nil, "How the hell did we get here? This should have been caught earlier")
+	helpers.Assert(m.ToNode != nil, "ToNode powinien zostać sprawdzony wcześniej")
 	return m.ToNode.Id != Broadcast.Id
 }
 
 func (m *OutgoingMessage) delivered(ack *acknowledgement) bool {
 	if m.isPrivateMessage() {
-		// A private message is delivered when it reaches its destination
+		// Wiadomość prywatna jest doręczona, gdy dotrze do odbiorcy.
 		return <-ack.delivered
 	} else {
-		// A channel message is delivered when it reaches its destination or we
-		// hear it repeated somewhere. Either is fine.
+		// Wiadomość kanałowa jest doręczona, gdy dotrze do celu albo usłyszymy jej powtórzenie.
 		select {
 		case delivered := <-ack.delivered:
 			return delivered
@@ -167,14 +165,14 @@ func (m *OutgoingMessage) delivered(ack *acknowledgement) bool {
 }
 
 func (m *OutgoingMessage) String() string {
-	helpers.Assert(m.FromNode != nil, "I should have a known FromNode at this point")
-	helpers.Assert(m.ToNode != nil, "I should have a known ToNode at this point")
+	helpers.Assert(m.FromNode != nil, "FromNode powinien być już znany")
+	helpers.Assert(m.ToNode != nil, "ToNode powinien być już znany")
 
 	direction := m.FromNode.ColorString()
 	if m.isPrivateMessage() {
 		direction += " -> " + m.ToNode.ColorString()
 	} else {
-		direction += " -> Channel " + m.Channel.name
+		direction += " -> Kanał " + m.Channel.name
 	}
 
 	contents := m.CurrentMessagePart

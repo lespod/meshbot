@@ -3,15 +3,15 @@ package meshwrapper
 type Event int
 
 const (
-	// Connection events
+	// Zdarzenia połączenia.
 	ConnectedEvent Event = iota
 	DisconnectedEvent
 
-	// Message events
+	// Zdarzenia wiadomości.
 	IncomingMessageEvent
 	OutgoingMessageEvent
 
-	// Specific message events
+	// Szczegółowe zdarzenia wiadomości.
 	TextMessageEvent
 	NodeInfoEvent
 	PositionEvent

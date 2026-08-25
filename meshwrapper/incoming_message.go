@@ -12,19 +12,19 @@ import (
 )
 
 const (
-	MESSAGE_TYPE_TEXT_MESSAGE          = "text message"
-	MESSAGE_TYPE_NODE_INFO             = "node info"
-	MESSAGE_TYPE_POSITION              = "position"
-	MESSAGE_TYPE_NEIGHBOR_INFO         = "neighbor info"
+	MESSAGE_TYPE_TEXT_MESSAGE          = "wiadomość tekstowa"
+	MESSAGE_TYPE_NODE_INFO             = "informacje o nodzie"
+	MESSAGE_TYPE_POSITION              = "pozycja"
+	MESSAGE_TYPE_NEIGHBOR_INFO         = "informacje o sąsiadach"
 	MESSAGE_TYPE_ROUTING               = "routing"
 	MESSAGE_TYPE_TRACEROUTE            = "traceroute"
-	MESSAGE_TYPE_TELEMETRY_DEVICE      = "device telemetry"
-	MESSAGE_TYPE_TELEMETRY_ENVIRONMENT = "environment telemetry"
-	MESSAGE_TYPE_TELEMETRY_HEALTH      = "health telemetry"
-	MESSAGE_TYPE_TELEMETRY_AIR_QUALITY = "air quality telemetry"
-	MESSAGE_TYPE_TELEMETRY_POWER       = "power telemetry"
-	MESSAGE_TYPE_TELEMETRY_LOCAL_STATS = "local stats telemetry"
-	MESSAGE_TYPE_OTHER                 = "other"
+	MESSAGE_TYPE_TELEMETRY_DEVICE      = "telemetria urządzenia"
+	MESSAGE_TYPE_TELEMETRY_ENVIRONMENT = "telemetria środowiskowa"
+	MESSAGE_TYPE_TELEMETRY_HEALTH      = "telemetria zdrowia"
+	MESSAGE_TYPE_TELEMETRY_AIR_QUALITY = "telemetria jakości powietrza"
+	MESSAGE_TYPE_TELEMETRY_POWER       = "telemetria zasilania"
+	MESSAGE_TYPE_TELEMETRY_LOCAL_STATS = "lokalne statystyki telemetryczne"
+	MESSAGE_TYPE_OTHER                 = "inne"
 
 	DEFAULT_BLOCKING_MESSAGE_TIMEOUT = 60 * time.Second
 )
@@ -37,6 +37,8 @@ type IncomingMessage struct {
 	Timestamp time.Time
 	Snr       float32
 	HopsAway  uint32
+	PacketId  uint32
+	RequestId uint32
 
 	MessageType        string
 	Text               string
@@ -49,6 +51,7 @@ type IncomingMessage struct {
 	UserInfo           *meshtastic.User
 	LocalStats         *meshtastic.LocalStats
 	NeighborInfo       *meshtastic.NeighborInfo
+	RouteDiscovery     *meshtastic.RouteDiscovery
 	Position           *Position
 }
 
@@ -60,13 +63,14 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 	}
 
 	payload := meshPacket.GetDecoded().GetPayload()
+	m.RequestId = meshPacket.GetDecoded().GetRequestId()
 	switch meshPacket.GetDecoded().Portnum {
 
 	case meshtastic.PortNum_NODEINFO_APP:
 		result := meshtastic.User{}
 		err := proto.Unmarshal(payload, &result)
 		if err != nil {
-			log.Println("Error: Could not unmarshall NodeInfo User mesh packet: " + err.Error())
+			log.Println("Błąd: nie udało się odkodować pakietu NodeInfo User: " + err.Error())
 			return
 		}
 		m.MessageType = MESSAGE_TYPE_NODE_INFO
@@ -77,7 +81,7 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 		result := meshtastic.Telemetry{}
 		err := proto.Unmarshal(payload, &result)
 		if err != nil {
-			log.Println("Error: Could not unmarshall Telemetry mesh packet: " + err.Error())
+			log.Println("Błąd: nie udało się odkodować pakietu Telemetry: " + err.Error())
 			return
 		}
 		switch result.Variant.(type) {
@@ -106,7 +110,7 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 			m.LocalStats = result.GetLocalStats()
 			IncomingMessageEvents.publish(LocalStatsTelemetryEvent, *m)
 		default:
-			log.Println("Warning: Unknown telemetry variant:", result.String())
+			log.Println("Ostrzeżenie: nieznany wariant telemetrii:", result.String())
 		}
 		IncomingMessageEvents.publish(TelemetryEvent, *m)
 
@@ -114,7 +118,7 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 		result := meshtastic.Position{}
 		err := proto.Unmarshal(payload, &result)
 		if err != nil {
-			log.Println("Error: Could not unmarshall Position mesh packet: " + err.Error())
+			log.Println("Błąd: nie udało się odkodować pakietu Position: " + err.Error())
 			return
 		}
 		m.MessageType = MESSAGE_TYPE_POSITION
@@ -125,12 +129,12 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 		result := meshtastic.NeighborInfo{}
 		err := proto.Unmarshal(payload, &result)
 		if err != nil {
-			log.Println("Error: Could not unmarshall NeighborInfo mesh packet: " + err.Error())
+			log.Println("Błąd: nie udało się odkodować pakietu NeighborInfo: " + err.Error())
 			return
 		}
 		m.MessageType = MESSAGE_TYPE_NEIGHBOR_INFO
 		m.NeighborInfo = &result
-		helpers.Assert(result.NodeId == meshPacket.From, "I don't understand this format well enough: received "+m.String()+" but it has NodeId "+strconv.Itoa(int(result.NodeId)))
+		helpers.Assert(result.NodeId == meshPacket.From, "Nie rozumiem jeszcze tego formatu wystarczająco dobrze: odebrano "+m.String()+" z NodeId "+strconv.Itoa(int(result.NodeId)))
 		IncomingMessageEvents.publish(NeighborInfoEvent, *m)
 
 	case meshtastic.PortNum_TEXT_MESSAGE_APP:
@@ -143,7 +147,7 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 			result := meshtastic.Routing{}
 			err := proto.Unmarshal(payload, &result)
 			if err != nil {
-				log.Println("Error: Could not unmarshall Routing mesh packet: " + err.Error())
+				log.Println("Błąd: nie udało się odkodować pakietu Routing: " + err.Error())
 				return
 			}
 			messageId := meshPacket.GetDecoded().RequestId
@@ -157,17 +161,30 @@ func (m *IncomingMessage) ingestMeshPacket(connectedNode *ConnectedNode, meshPac
 		IncomingMessageEvents.publish(RoutingEvent, *m)
 
 	case meshtastic.PortNum_TRACEROUTE_APP:
+		result := meshtastic.RouteDiscovery{}
+		err := proto.Unmarshal(payload, &result)
+		if err != nil {
+			log.Println("Błąd: nie udało się odkodować pakietu RouteDiscovery: " + err.Error())
+			return
+		}
 		m.MessageType = MESSAGE_TYPE_TRACEROUTE
+		m.RouteDiscovery = &result
 		IncomingMessageEvents.publish(TraceRouteEvent, *m)
 
 	default:
-		log.Println("Warning: Unknown mesh packet:", meshPacket.String())
+		log.Println("Ostrzeżenie: nieznany pakiet mesh:", meshPacket.String())
 
 	}
 }
 
 func (m *IncomingMessage) Reply(message string) chan bool {
 	return m.newOutgoingMessage(message).Send()
+}
+
+func (m *IncomingMessage) ReplyTo(message string) chan bool {
+	outgoing := m.newOutgoingMessage(message)
+	outgoing.ReplyId = m.PacketId
+	return outgoing.Send()
 }
 
 func (m *IncomingMessage) ReplyReliably(message string) chan bool {
@@ -197,7 +214,7 @@ func (m IncomingMessage) GetType() string {
 
 func (m IncomingMessage) GetChannelName() string {
 	if m.Channel == nil {
-		return "UNKNOWN"
+		return "NIEZNANY"
 	}
 	return m.Channel.name
 }
@@ -222,35 +239,35 @@ func (m IncomingMessage) String() string {
 	if m.FromNode != nil {
 		direction += m.FromNode.ColorString()
 	} else {
-		direction += "No node"
+		direction += "Brak noda"
 	}
 	if m.IsPrivateMessage() {
 		if m.ToNode != nil {
 			direction += " -> " + m.ToNode.ColorString()
 		} else {
-			direction += " -> No node"
+			direction += " -> Brak noda"
 		}
 	} else {
 		if m.Channel != nil {
-			direction += " -> Channel " + m.Channel.name
+			direction += " -> Kanał " + m.Channel.name
 		} else {
-			direction += " -> Unknown channel"
+			direction += " -> Nieznany kanał"
 		}
 	}
 
 	if m.MessageType == MESSAGE_TYPE_NEIGHBOR_INFO {
-		neighbours := "unknown"
+		neighbours := "nieznani"
 		if m.FromNode != nil {
 			neighbours = m.FromNode.Neighbors.String()
 		}
-		return fmt.Sprintf("%s: \033[1mNeighbor list:\033[0m %s %s", direction, m.radioMetricsString(), neighbours)
+		return fmt.Sprintf("%s: \033[1mLista sąsiadów:\033[0m %s %s", direction, m.radioMetricsString(), neighbours)
 	}
 
 	if m.MessageType == MESSAGE_TYPE_TEXT_MESSAGE {
 		return fmt.Sprintf("%s: %s\n%s", direction, m.radioMetricsString(), helpers.Indent(m.Text, "\t"))
 	}
 
-	return fmt.Sprintf("%s: \033[1m%s packet\033[0m %s", direction, m.MessageType, m.radioMetricsString())
+	return fmt.Sprintf("%s: \033[1mPakiet: %s\033[0m %s", direction, m.MessageType, m.radioMetricsString())
 }
 
 func (m *IncomingMessage) radioMetricsString() string {
@@ -263,9 +280,9 @@ func (m *IncomingMessage) radioMetricsString() string {
 		snr = fmt.Sprintf("SNR %.2f, ", m.Snr)
 	}
 	return fmt.Sprintf(
-		"\033[90m(%s%d %s away)\033[0m",
+		"\033[90m(%s%d %s stąd)\033[0m",
 		snr,
 		m.HopsAway,
-		helpers.Pluralize("hop", int(m.HopsAway)),
+		helpers.PolishHopWord(int(m.HopsAway)),
 	)
 }

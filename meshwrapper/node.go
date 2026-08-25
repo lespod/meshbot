@@ -31,7 +31,7 @@ func NewNode(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) *Node {
 		Id:               info.Num,
 		HopsAway:         0,
 		ShortName:        "UNKN",
-		LongName:         "Unknown node",
+		LongName:         "Nieznany node",
 		HwModel:          meshtastic.HardwareModel_UNSET,
 		IsLicensed:       false,
 		ReceivedMessages: make([]*IncomingMessage, 0),
@@ -42,8 +42,7 @@ func NewNode(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) *Node {
 	return &node
 }
 
-// NodeInfo is basically the node list we get from the device when we first
-// connect over serial (I think) as well as the list of nodes in Neighbour Info
+// NodeInfo to lista nodów pobrana z urządzenia po połączeniu serial oraz z pakietów Neighbor Info.
 func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.NodeInfo) {
 	if info == nil || info.Num != n.Id {
 		return
@@ -89,16 +88,13 @@ func (n *Node) ingestNodeInfo(connectedNode *ConnectedNode, info *meshtastic.Nod
 	}
 }
 
-// If we receive a messages that came from this node, make sure we update our
-// node accordingly and store the message in our list
+// Po odebraniu wiadomości od tego noda zaktualizuj jego stan i zapisz wiadomość.
 func (n *Node) receiveMessage(connectedNode *ConnectedNode, message IncomingMessage) {
 	n.ReceivedMessages = append(n.ReceivedMessages, &message)
 	n.LastHeard = message.Timestamp
 	n.HopsAway = message.HopsAway
 	if message.HopsAway == 0 {
-		// Assumption: the packet RxSnr is the signal quality of the received
-		// packet, which may have hopped through other nodes. So only update
-		// this node's SNR if we haven't hopped yet.
+		// RxSnr dotyczy odebranego pakietu, więc aktualizujemy SNR noda tylko bez hopów.
 		n.Snr = message.Snr
 	}
 
@@ -147,7 +143,7 @@ func (n *Node) ColorString() string {
 
 	var shortName string
 	if len(n.ShortName) == 4 && utf8.RuneCountInString(n.ShortName) == 1 {
-		// Short name is an emoji
+		// Short name jest emoji.
 		shortName = fmt.Sprintf(" %s ", n.ShortName)
 	} else {
 		shortName = fmt.Sprintf("%-4s", n.ShortName)
@@ -182,11 +178,11 @@ func (n *Node) VerboseString() string {
 
 	hopsAway := ""
 	if n.HopsAway > 0 {
-		hopsAway = fmt.Sprintf(", %d %s away", n.HopsAway, helpers.Pluralize("hop", int(n.HopsAway)))
+		hopsAway = fmt.Sprintf(", %d %s stąd", n.HopsAway, helpers.PolishHopWord(int(n.HopsAway)))
 	}
 
 	return fmt.Sprintf(
-		"%s \033[90m(%s, %s, last heard %s ago%s%s)\033[0m",
+		"%s \033[90m(%s, %s, ostatnio słyszany %s temu%s%s)\033[0m",
 		n.String(),
 		hardware,
 		role,
@@ -212,7 +208,7 @@ func (n *Node) GetHopsAway() int {
 }
 
 func (n *Node) GetRSSI() float32 {
-	panic("TODO: implement")
+	panic("TODO: zaimplementować")
 }
 
 func (n *Node) GetSNR() float32 {

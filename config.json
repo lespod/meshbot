@@ -1,36 +1,33 @@
 {
     "connections": [
         {
-            "name": "Networked device",
-            "hostname": "meshtastic.local",
+            "name": "Urządzenie sieciowe",
+            "hostname": "192.168.0.124",
             "port": 4403
-        },
-        {
-            "name": "Local device",
-            "device": "/dev/ttyUSB0"
         }
     ],
     "settings": {
         "allow_tcp": true,
-        "allow_serial": true,
-        "allow_transmit": false,
+        "allow_serial": false,
+        "allow_transmit": true,
         "transmit_exception_node_id": 0,
-        "allow_transmit_to_channels": false
+        "allow_transmit_to_channels": true
     },
-    "rooms": [
-        {
-            "name": "General",
-            "password": null
-        },
-        {
-            "name": "Private",
-            "password": "SuperSecret"
-        }
-    ],
+    "commands": {
+        "ping": true,
+        "pomoc": false,
+        "sygnal": true,
+        "sasiedzi": true,
+        "hopy": true,
+        "test": true,
+        "sciezka": true,
+        "pogoda": true,
+        "prognoza": true
+    },
     "announcements": [
         {
-            "message": "🤖👋 Welcome to our mesh!",
-            "channel": "YourChannel",
+            "message": "🤖👋 Witamy w naszym meshu!",
+            "channel": "TwojKanal",
             "delayMinutes": 1440,
             "maxHops": 1
         }

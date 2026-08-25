@@ -23,33 +23,81 @@ func TimeAgo(timestamp time.Time) string {
 	seconds := int(time.Since(timestamp).Seconds())
 
 	if seconds == 1 {
-		return "one second"
+		return "sekundę"
 	}
 	if seconds < 60 {
-		return fmt.Sprintf("%d seconds", seconds)
+		return fmt.Sprintf("%d %s", seconds, polishSecondWord(seconds))
 	}
 
 	minutes := int(math.Floor(float64(seconds) / 60))
 	if minutes == 1 {
-		return "one minute"
+		return "minutę"
 	}
 	if minutes < 60 {
-		return fmt.Sprintf("%d minutes", minutes)
+		return fmt.Sprintf("%d %s", minutes, polishMinuteWord(minutes))
 	}
 
 	hours := int(math.Floor(float64(minutes) / 60))
 	if hours == 1 {
-		return "one hour"
+		return "godzinę"
 	}
 	if hours < 24 {
-		return fmt.Sprintf("%d hours", hours)
+		return fmt.Sprintf("%d %s", hours, polishHourWord(hours))
 	}
 
 	days := int(math.Floor(float64(hours) / 24))
 	if days == 1 {
-		return "one day"
+		return "dzień"
 	}
-	return fmt.Sprintf("%d days", days)
+	return fmt.Sprintf("%d %s", days, polishDayWord(days))
+}
+
+func PolishHopWord(count int) string {
+	if count == 1 {
+		return "hop"
+	}
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "hopy"
+	}
+	return "hopów"
+}
+
+func PolishJumpWord(count int) string {
+	if count == 1 {
+		return "przeskok"
+	}
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "przeskoki"
+	}
+	return "przeskoków"
+}
+
+func polishSecondWord(count int) string {
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "sekundy"
+	}
+	return "sekund"
+}
+
+func polishMinuteWord(count int) string {
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "minuty"
+	}
+	return "minut"
+}
+
+func polishHourWord(count int) string {
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "godziny"
+	}
+	return "godzin"
+}
+
+func polishDayWord(count int) string {
+	if count%10 >= 2 && count%10 <= 4 && (count%100 < 12 || count%100 > 14) {
+		return "dni"
+	}
+	return "dni"
 }
 
 func BreakMessage(input string) []string {
@@ -60,13 +108,13 @@ func BreakMessage(input string) []string {
 	for _, message := range strings.Split(input, "<BREAK-MESSAGE>") {
 		message = strings.TrimSpace(message)
 
-		// Don't try to cut up messages that fit
+		// Nie dziel wiadomości, które mieszczą się w limicie.
 		if len(message) <= MAX_MESSAGE_LENGTH {
 			messages = append(messages, message)
 			continue
 		}
 
-		// Cut message in parts and add pagination info to each part
+		// Podziel wiadomość i dodaj numerację do każdej części.
 		messageParts := BreakMessageAt(message, MAX_LENGTH_WITH_PAGINATION)
 		for i := range messageParts {
 			if len(messageParts) > 9 {
@@ -78,7 +126,7 @@ func BreakMessage(input string) []string {
 
 		messages = append(messages, messageParts...)
 	}
-	Assert(len(messages) < 1000, "What the hell are you doing creating so many messages..?")
+	Assert(len(messages) < 1000, "Tworzysz zbyt wiele wiadomości naraz")
 	return messages
 }
 
@@ -90,27 +138,21 @@ func BreakMessageAt(input string, maxlength int) []string {
 	resumePtr := 0
 
 	for startPtr < len(input) {
-		// Find the next (rough) place where we need to cut the input to get it
-		// to fit in a message
+		// Znajdź przybliżone miejsce cięcia, żeby część zmieściła się w wiadomości.
 		charEnd := startPtr + maxlength
 
 		if charEnd >= len(input) {
-			// We can fit the whole rest of the input in the message, in other
-			// words: we're done
+			// Reszta tekstu mieści się w jednej wiadomości, więc kończymy.
 			messages = append(messages, input[startPtr:])
 			break
 		}
 
-		// Find the "real" charEnd, that considers UTF-8 encoding
-		// boundaries. This should walk back at most 4 bytes, and since
-		// we're always considering 200 bytes at once, we should be fine.
+		// Skoryguj koniec tak, żeby nie przeciąć znaku UTF-8.
 		for !utf8.ValidString(input[startPtr:charEnd]) {
 			charEnd--
 		}
 
-		// Break on the furthest newline that fits in the next message, if
-		// the line after that can fit in a single message. Otherwise, break
-		// on the furthest space. If neither is found, break on character.
+		// Najpierw tnij po nowej linii, potem po spacji, a ostatecznie po znaku.
 		wordEnd := strings.LastIndex(input[startPtr:charEnd+1], " ")
 		lineEnd := strings.LastIndex(input[startPtr:charEnd+1], "\n")
 
@@ -122,10 +164,10 @@ func BreakMessageAt(input string, maxlength int) []string {
 
 		if lineEnd != -1 && nextLineLength <= maxlength {
 			endPtr = lineEnd + startPtr
-			resumePtr = endPtr + 1 // Skip the newline character
+			resumePtr = endPtr + 1 // Pomiń znak nowej linii.
 		} else if wordEnd != -1 {
 			endPtr = wordEnd + startPtr
-			resumePtr = endPtr + 1 // Skip the space character
+			resumePtr = endPtr + 1 // Pomiń spację.
 		} else {
 			endPtr = charEnd
 			resumePtr = endPtr

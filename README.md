@@ -1,115 +1,100 @@
-> This version of Meshbot is a rewrite in Go. If for some weird reason you
-> **really** need the broken old Python version, I have saved that in the
-> [branch
-> legacy-version-in-python](https://github.com/Timendus/meshbot/tree/legacy-version-in-python).
+> Ta wersja Meshbota jest przepisaniem aplikacji na Go. Jeśli z jakiegoś powodu
+> naprawdę potrzebujesz starej, popsutej wersji w Pythonie, została zachowana w
+> gałęzi
+> [legacy-version-in-python](https://github.com/Timendus/meshbot/tree/legacy-version-in-python).
 
 # Meshbot
 
-A simple bot for use with Meshtastic. I know the name isn't very original 😄
+Prosty bot do użycia z Meshtastic. Nazwa nie jest szczególnie oryginalna.
 
-Some people would probably call this a "BBS", but personally I think it has more
-in common with a crossover between a Slack / Telegram / Discord bot and a
-MeshCore room server.
+Część osób nazwałaby to „BBS-em”, ale bliżej mu do prostego bota obsługującego
+komendy przez sieć Meshtastic.
 
-It is written in Golang, which makes for a very efficient piece of software
-compared to all the similar programs written in Python. The binary and docker
-image are a couple of megabytes. It needs barely and CPU and a couple of
-megabyte of RAM to run. It should also be pretty stable and robust.
+Aplikacja jest napisana w Go, dzięki czemu jest lekka w porównaniu z podobnymi
+programami pisanymi w Pythonie. Binarka i obraz Dockera mają po kilka
+megabajtów. Do działania potrzebuje niewiele CPU i tylko kilku megabajtów RAM.
+Powinna też działać stabilnie.
 
-## Current features
+## Aktualne funkcje
 
-- "Room server" that supports multiple rooms with subscriptions and
-  semi-reliable message delivery ([see
-  here](./manual.md#why-meshbot-rooms-are-more-reliable-than-regular-channels)
-  how we do that)
-- Signal reports and neighbours can be queried
-- Weather reports and forecasts can be queried, using
-  [open-meteo.com](https://open-meteo.com/) (requires the bot to have an
-  Internet connection)
-- Programmable regular announcements to channels for service messages in your
-  area
+- Raporty sygnału i lista sąsiadów.
+- Diagnostyka przeskoków, odległości i trasy między nodami.
+- Raporty pogodowe i prognozy z
+  [open-meteo.com](https://open-meteo.com/) (bot potrzebuje połączenia z
+  Internetem).
+- Programowalne, cykliczne ogłoszenia na kanałach, np. dla komunikatów
+  lokalnej społeczności.
 
-## Usage on the mesh
+## Użycie w meshu
 
-See the [user manual](./manual.md) for instructions on how to use Meshbot over
-Meshtastic.
+Instrukcje używania Meshbota przez Meshtastic są w [manualu](./manual.md).
 
-## Hosting Meshbot
+## Hosting Meshbota
 
-### Be responsible
+### Odpowiedzialność
 
-There is very little bandwidth available on Meshtastic. If you use this bot, and
-especially if you wish to modify it, please make sure it doesn't spam your local
-mesh. Make sure it only speaks when spoken to. Et cetera.
+Meshtastic ma bardzo małą przepustowość. Jeśli używasz tego bota, a szczególnie
+jeśli chcesz go modyfikować, dopilnuj, żeby nie spamował lokalnego mesha. Bot
+powinien mówić tylko wtedy, gdy ktoś się do niego odezwie.
 
-Also, be aware that Meshbot rooms with many users will generate a lot of
-traffic, since every message is sent to every user, with retries. This grows
-exponentially.
+Krótko: bądź dobrym sąsiadem w meshu.
 
-In short: be a good neighbour.
+### Konfiguracja
 
-### Setup
+> **Uwaga**: bot był dotąd testowany głównie na Linuksie i jako obraz Dockera,
+> przez TCP. Prawdopodobnie zadziała też przez USB oraz na macOS, Windowsie albo
+> Raspberry Pi, ale szerokie wsparcie tych wariantów nie jest obecnie
+> priorytetem.
 
-> **Please note** that this bot has currently **only** been tested on Linux and
-> as a Docker image, over TCP. I expect it will probably work over USB and/or on
-> MacOS, Windows or Raspberry Pi, but beware there may be dragons 😉 Feel free
-> to create an issue if you run into things, but broad support is currently not
-> a high priority.
+Potrzebujesz noda Meshtastic i komputera, na którym będzie działał bot. Node i
+komputer mogą być połączone kablem USB albo przez sieć, np. przez
+[Wi-Fi lub Ethernet](https://meshtastic.org/docs/configuration/radio/network/).
 
-You will need a Meshtastic node and a computer to host the bot. The node and the
-computer can either be connected through a USB cable, or [trough your network
-over wifi or
-ethernet](https://meshtastic.org/docs/configuration/radio/network/).
+USB może być bardziej mobilne i nie zależy od lokalnej sieci, np. podczas awarii
+zasilania. Połączenie sieciowe pozwala postawić noda w najlepszym miejscu dla
+odbioru, a bota uruchomić tam, gdzie masz dostępny komputer.
 
-The former can be super mobile and does not depend on your local network being
-up (for example during a power outage). The latter allows you the luxury of
-having your node in the best possible spot for reception, while the bot is
-running wherever you happen to have compute.
+#### Node Meshtastic
 
-#### Meshtastic node
+Ten projekt jest rozwijany na Heltec v3, ale dowolny node Meshtastic powinien
+być wystarczający.
 
-This software is being developed using a Heltec v3, but any Meshtastic node
-should do.
+Upewnij się, że poza botem żaden inny klient nie komunikuje się z tym nodem. W
+przeciwnym razie oba klienty mogą gubić wiadomości i całość będzie wyglądała na
+zepsutą. Odłącz aplikację mobilną i nie zestawiaj innych połączeń z nodem, gdy
+bot działa.
 
-Make sure no other client besides the bot is communicating with the node,
-otherwise both clients will be missing messages and things will appear to be
-very broken. So disconnect your mobile app and don't make any other connections
-to it while the bot is running.
+Praktyczne wskazówki po stronie Meshtastic:
 
-Pro-tips on the Meshtastic side:
+- Dodaj emoji robota (🤖) do nazwy noda, żeby inni widzieli, że to bot.
+- W aplikacji Meshtastic na Androidzie możesz dodać quick messages z komendami,
+  np. `/test` i `/sygnal`, żeby wysyłać je jednym kliknięciem.
 
-- Add a robot emoji (🤖) to your node name to make it clear to other users that
-  your node is a bot.
-- You can add quick chat messages -- at least in the Android Meshtastic app.
-  Adding the commands that the bot accepts (like `/rooms` and `/signal`) as
-  quick messages makes them really easily accessible with one click.
+#### Komputer
 
-#### Computer
+Wystarczy dowolny komputer, o ile pozostaje włączony. Bot może działać na NAS-ie
+albo nawet na starszym Raspberry Pi. Możesz uruchomić go bezpośrednio albo przez
+Dockera.
 
-Any computer will do as long as it stays on, of course. I run it locally on my
-NAS, but even an old Raspberry Pi should work great for the bot. It requires
-very few resources. You can run the bot through Docker or directly on the
-computer.
+Pobierz właściwą wersję z
+[releases](https://github.com/Timendus/meshbot/releases). Edytuj `config.json`,
+żeby wskazać botowi, jak połączyć się z nodem i jak ma się zachowywać.
+`config.json` powinien znajdować się w tym samym katalogu co program.
 
-Download the appropriate version of the software from the [releases
-page](https://github.com/Timendus/meshbot/releases). Edit the `config.json` file
-to tell the bot how to connect to your node and how to behave and start the
-software. `config.json` should be in the same directory as the software.
+Dla Dockera zamontuj katalog do `/app/config` i uruchom kontener. Przy pierwszym
+starcie, jeśli wszystko jest poprawnie skonfigurowane, w zamontowanym katalogu
+powstanie `config.json`. Zatrzymaj kontener, edytuj konfigurację i uruchom go
+ponownie.
 
-For the docker version, mount a directory to `/app/config`. Launch the
-container. The first time, if configured correctly, a `config.json` file will be
-created in the mounted directory for you to edit. Stop the container, edit the
-config file and restart the container.
+## Lokalny development
 
-## Local development
+Zależności:
 
-Dependencies:
-
-- Golang
+- Go
 - Git
 - make
 
-Then do something like:
+Przykład:
 
 ```bash
 git clone git@github.com:Timendus/meshbot.git
@@ -118,4 +103,4 @@ vi config.json
 make
 ```
 
-And the bot should start.
+Po tym bot powinien się uruchomić.

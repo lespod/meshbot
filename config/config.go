@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 )
 
 type ConnectionType int
@@ -17,7 +18,7 @@ const (
 type Config struct {
 	Connections   []Connection   `json:"connections"`
 	Settings      Settings       `json:"settings"`
-	Rooms         []Room         `json:"rooms"`
+	Commands      Commands       `json:"commands"`
 	Announcements []Announcement `json:"announcements"`
 }
 
@@ -37,10 +38,7 @@ type Settings struct {
 	AllowTransmitToChannels bool   `json:"allow_transmit_to_channels"`
 }
 
-type Room struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
-}
+type Commands map[string]bool
 
 type Announcement struct {
 	Message      string `json:"message"`
@@ -74,7 +72,7 @@ func InitConfig() error {
 	}
 	for i, announcement := range config.Announcements {
 		if announcement.DelayMinutes == 0 {
-			config.Announcements[i].DelayMinutes = 1440 // Default to once per day
+			config.Announcements[i].DelayMinutes = 1440 // Domyślnie raz dziennie.
 		}
 	}
 	return nil
@@ -82,4 +80,15 @@ func InitConfig() error {
 
 func GetConfig() Config {
 	return config
+}
+
+func IsCommandEnabled(command string) bool {
+	if config.Commands == nil {
+		return true
+	}
+	enabled, configured := config.Commands[strings.ToLower(strings.TrimSpace(command))]
+	if !configured {
+		return true
+	}
+	return enabled
 }

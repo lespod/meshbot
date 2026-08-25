@@ -15,7 +15,7 @@ type Neighbor struct {
 }
 
 func (n *Neighbor) String() string {
-	return fmt.Sprintf("%s \033[90m(last reported %s ago, SNR %.2f)\033[0m", n.Node.ColorString(), helpers.TimeAgo(n.LastReported), n.Snr)
+	return fmt.Sprintf("%s \033[90m(ostatnio zgłoszony %s temu, SNR %.2f)\033[0m", n.Node.ColorString(), helpers.TimeAgo(n.LastReported), n.Snr)
 }
 
 type NeighborList []Neighbor
