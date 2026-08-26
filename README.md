@@ -82,9 +82,26 @@ Pobierz właściwą wersję z
 `config.json` powinien znajdować się w tym samym katalogu co program.
 
 Dla Dockera zamontuj katalog do `/app/config` i uruchom kontener. Przy pierwszym
-starcie, jeśli wszystko jest poprawnie skonfigurowane, w zamontowanym katalogu
-powstanie `config.json`. Zatrzymaj kontener, edytuj konfigurację i uruchom go
-ponownie.
+starcie, jeśli `config.json` nie istnieje, zostanie skopiowany tam plik domyślny.
+
+#### Synology Container Manager
+
+Skopiuj repozytorium na Synology albo przygotuj katalog zawierający `compose.yaml`
+i pliki projektu. W Container Managerze utwórz projekt z tego katalogu i uruchom
+go. Konfiguracja będzie przechowywana w podkatalogu `config`, niezależnie od
+aktualizacji obrazu.
+
+Możesz też uruchomić projekt z SSH:
+
+```bash
+mkdir -p config
+docker compose up -d --build
+```
+
+Obraz jest budowany dla architektury hosta, więc działa zarówno na Synology
+`x86_64`, jak i na modelach `arm64`. Przed uruchomieniem ustaw w
+`config/config.json` adres IP lub hostname noda Meshtastic oraz włączone
+połączenie TCP.
 
 ## Lokalny development
 
@@ -104,3 +121,14 @@ make
 ```
 
 Po tym bot powinien się uruchomić.
+
+## Licencja i prawa autorskie / License
+
+Ten projekt jest forkiem i przepisaną wersją projektu [Meshbot autorstwa Timendusa](https://github.com/Timendus/meshbot).
+
+Copyright (C) 2026 Timendus
+Modifications and extensions Copyright (C) 2026 lespod
+
+Ten program jest wolnym oprogramowaniem: możesz go rozpowszechniać i/lub modyfikować pod warunkami Powszechnej Licencji Publicznej GNU (GNU General Public License) wydanej przez Fundację Wolnego Oprogramowania – według wersji 3 tej Licencji lub dowolnej późniejszej.
+
+Pełna treść licencji znajduje się w pliku [LICENSE](LICENSE).

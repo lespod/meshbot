@@ -1,0 +1,8 @@
+services:
+  meshbot:
+    build:
+      context: .
+    container_name: meshbot
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config

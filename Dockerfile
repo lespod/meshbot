@@ -3,8 +3,11 @@
 #######################
 ### Building container
 
-FROM golang:latest AS build
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS build
 WORKDIR /app
+
+ARG TARGETOS
+ARG TARGETARCH
 
 # Install dependencies
 COPY go.mod go.sum .
@@ -14,33 +17,20 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o output/meshbot *.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o output/meshbot .
 
 ######################
 ### Running container
 
-FROM alpine:latest AS run
+FROM alpine:3.22 AS run
 WORKDIR /app
 
 # Copy the application executable from the build image
 COPY --from=build /app/output /app
 
-# For when we have a web interface:
-# EXPOSE 8080
-
-# Have a little runner script that copies the default config and plugins to the
-# host directory if not yet present
 COPY ./config.json /app/default-config/config.json
-RUN cat >./run-meshbot.sh <<EOF
-#!/bin/sh
-if [ ! -f "/app/config/config.json" ]; then
-    echo "Copying default config"
-    cp /app/default-config/config.json /app/config/config.json
-fi
-ln -sfn /app/config/config.json /app/config.json
-./meshbot
-EOF
-RUN chmod +x ./run-meshbot.sh
+COPY ./docker-entrypoint.sh /usr/local/bin/meshbot-entrypoint
+RUN chmod +x /usr/local/bin/meshbot-entrypoint
 
-# Run the application
-CMD ["./run-meshbot.sh"]
+VOLUME ["/app/config"]
+ENTRYPOINT ["/usr/local/bin/meshbot-entrypoint"]
