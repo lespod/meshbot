@@ -24,6 +24,15 @@
         "pogoda": true,
         "prognoza": true
     },
+    "logging": {
+        "incoming_messages": false,
+        "outgoing_messages": false,
+        "connections": true,
+        "channels": false,
+        "announcements": true,
+        "protocol_packets": false,
+        "acknowledgements": false
+    },
     "announcements": [
         {
             "message": "🤖👋 Witamy w naszym meshu!",

@@ -66,6 +66,25 @@ i `/signal`.
 Komendy inne niż wymienione powyżej są ignorowane. Zwykłe wiadomości DM nie są
 zapisywane ani przekazywane dalej przez Meshbota.
 
+## Logowanie
+
+Rodzaje logów można włączać i wyłączać w sekcji `logging` pliku `config.json`:
+
+```json
+"logging": {
+  "incoming_messages": false,
+  "outgoing_messages": false,
+  "connections": true,
+  "channels": false,
+  "announcements": true,
+  "protocol_packets": false,
+  "acknowledgements": false
+}
+```
+
+Domyślnie wyłączone są pełne wiadomości, surowe pakiety protokołu i szczegóły
+potwierdzeń. Błędy są zawsze zapisywane w logu.
+
 ## Kanały i wiadomości prywatne
 
 Wiadomości prywatne mają informację zwrotną o doręczeniu w aplikacji, więc

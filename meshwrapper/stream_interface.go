@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/timendus/meshbot/config"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	START1    = 0x94
-	START2    = 0xC3
-	MAX_SIZE  = 512
-	DEBUGGING = false
+	START1   = 0x94
+	START2   = 0xC3
+	MAX_SIZE = 512
 )
 
 func wakeDevice(writer io.Writer) error {
@@ -35,7 +35,7 @@ func wakeDevice(writer io.Writer) error {
 }
 
 func writeMessage(writer io.Writer, message *meshtastic.ToRadio) error {
-	if DEBUGGING {
+	if config.IsLogEnabled("protocol_packets") {
 		log.Println("\033[90mWysyłam: " + message.String() + "\033[0m")
 	}
 
@@ -76,7 +76,7 @@ searching:
 		case 0:
 			if buffer[0] == START1 {
 				state = 1
-			} else if DEBUGGING {
+			} else if config.IsLogEnabled("protocol_packets") {
 				// Pozostałe bajty potraktuj jako debug tekstowy.
 				fmt.Print(buffer)
 			}
@@ -85,7 +85,7 @@ searching:
 				state = 2
 			} else {
 				state = 0
-				if DEBUGGING {
+				if config.IsLogEnabled("protocol_packets") {
 					fmt.Print([]byte{START1})
 					fmt.Print(buffer)
 				}
@@ -97,7 +97,7 @@ searching:
 			length |= int(buffer[0]) & 0xFF
 			if length > MAX_SIZE {
 				log.Printf("Nieprawidłowy rozmiar pakietu: %d\n", length)
-				if DEBUGGING {
+				if config.IsLogEnabled("protocol_packets") {
 					fmt.Print([]byte{START1, START2, byte(length >> 8)})
 					fmt.Print(buffer)
 				}
@@ -111,7 +111,7 @@ searching:
 	}
 
 	protobuffer := make([]byte, length)
-	n, err := reader.Read(protobuffer)
+	n, err := io.ReadFull(reader, protobuffer)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ searching:
 	if err != nil {
 		return nil, err
 	}
-	if DEBUGGING {
+	if config.IsLogEnabled("protocol_packets") {
 		log.Println("\033[90mOdebrano: " + result.String() + "\033[0m")
 	}
 	return &result, nil

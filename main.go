@@ -67,7 +67,9 @@ func main() {
 				log.Fatal("Połączenie serial jest skonfigurowane, ale ustawienia na nie nie pozwalają")
 			}
 			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
-				log.Println("Próbuję otworzyć połączenie serial z " + connection.SerialDevice)
+				if config.IsLogEnabled("connections") {
+					log.Println("Próbuję otworzyć połączenie serial z " + connection.SerialDevice)
+				}
 				stream, err := serial.Open(connection.SerialDevice, &serial.Mode{
 					BaudRate: 115200,
 				})
@@ -83,7 +85,9 @@ func main() {
 			}
 			node = m.NewConnectedNode(func() (io.ReadWriteCloser, error) {
 				conn := connection.Hostname + ":" + strconv.Itoa(connection.Port)
-				log.Println("Próbuję otworzyć połączenie TCP z " + conn)
+				if config.IsLogEnabled("connections") {
+					log.Println("Próbuję otworzyć połączenie TCP z " + conn)
+				}
 				stream, err := net.Dial("tcp", conn)
 				if err != nil {
 					return nil, fmt.Errorf("nie udało się otworzyć połączenia TCP z '"+conn+"': %w", err)
@@ -141,16 +145,20 @@ var pendingTraceroutes = struct {
 }
 
 func connected(node m.ConnectedNode) {
-	log.Println("Połączono z " + node.String())
+	if config.IsLogEnabled("connections") {
+		log.Println("Połączono z " + node.String())
+	}
 	// log.Println("Lista nodów: \n" + node.NodeList.String())
 
 	// Pokaż dostępne kanały w logach.
-	log.Println("Lista kanałów:")
-	keys := slices.Collect(maps.Keys(node.Channels))
-	slices.Sort(keys)
-	for _, key := range keys {
-		channel := node.Channels[key]
-		log.Println("   " + channel.String())
+	if config.IsLogEnabled("channels") {
+		log.Println("Lista kanałów:")
+		keys := slices.Collect(maps.Keys(node.Channels))
+		slices.Sort(keys)
+		for _, key := range keys {
+			channel := node.Channels[key]
+			log.Println("   " + channel.String())
+		}
 	}
 
 	// Uruchom zaplanowane ogłoszenia.
@@ -163,7 +171,9 @@ func connected(node m.ConnectedNode) {
 			}
 			go func() {
 				for {
-					log.Println("Czas na ogłoszenie!")
+					if config.IsLogEnabled("announcements") {
+						log.Println("Czas na ogłoszenie!")
+					}
 					m.NewOutgoingChannelMessage(announcement.Message, &node, channel, announcement.MaxHops).Send()
 					time.Sleep(time.Duration(announcement.DelayMinutes) * time.Minute)
 				}
@@ -174,16 +184,24 @@ func connected(node m.ConnectedNode) {
 }
 
 func disconnected(node m.ConnectedNode) {
-	log.Println("Rozłączono z nodem")
+	if config.IsLogEnabled("connections") {
+		log.Println("Rozłączono z nodem")
+	}
 	backoff := 1 * time.Second
 	for !node.Connected {
-		log.Println("Próbuję ponownie połączyć się z nodem...")
+		if config.IsLogEnabled("connections") {
+			log.Println("Próbuję ponownie połączyć się z nodem...")
+		}
 		err := node.Connect()
 		if err == nil {
-			log.Println("Ponownie połączono z nodem!")
+			if config.IsLogEnabled("connections") {
+				log.Println("Ponownie połączono z nodem!")
+			}
 			break
 		}
-		log.Println("Nie udało się połączyć, wydłużam czas oczekiwania...", err)
+		if config.IsLogEnabled("connections") {
+			log.Println("Nie udało się połączyć, wydłużam czas oczekiwania...", err)
+		}
 		time.Sleep(backoff)
 		backoff *= 2
 	}
@@ -382,7 +400,9 @@ func takeTraceroute(requestID uint32, fromID uint32) *pendingTraceroute {
 }
 
 func incoming(message m.IncomingMessage) {
-	fmt.Println(message.String())
+	if config.IsLogEnabled("incoming_messages") {
+		fmt.Println(message.String())
+	}
 
 	if message.MessageType != m.MESSAGE_TYPE_TEXT_MESSAGE {
 		return
@@ -554,5 +574,7 @@ func traceroute(message m.IncomingMessage) {
 }
 
 func outgoing(message m.OutgoingMessage) {
-	fmt.Println(message.String())
+	if config.IsLogEnabled("outgoing_messages") {
+		fmt.Println(message.String())
+	}
 }

@@ -19,6 +19,7 @@ type Config struct {
 	Connections   []Connection   `json:"connections"`
 	Settings      Settings       `json:"settings"`
 	Commands      Commands       `json:"commands"`
+	Logging       Logging        `json:"logging"`
 	Announcements []Announcement `json:"announcements"`
 }
 
@@ -39,6 +40,7 @@ type Settings struct {
 }
 
 type Commands map[string]bool
+type Logging map[string]bool
 
 type Announcement struct {
 	Message      string `json:"message"`
@@ -91,4 +93,18 @@ func IsCommandEnabled(command string) bool {
 		return true
 	}
 	return enabled
+}
+
+func IsLogEnabled(category string) bool {
+	category = strings.ToLower(strings.TrimSpace(category))
+	if enabled, configured := config.Logging[category]; configured {
+		return enabled
+	}
+
+	switch category {
+	case "connections", "announcements":
+		return true
+	default:
+		return false
+	}
 }

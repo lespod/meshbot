@@ -172,7 +172,7 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 		packet, err := readMessage(stream)
 		if err != nil {
 			log.Println("Błąd: " + err.Error())
-			if err == io.EOF {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				log.Println("EOF prawdopodobnie oznacza rozłączenie urządzenia. Zatrzymuję obsługę połączenia.")
 				return n.Close()
 			}
@@ -201,9 +201,17 @@ func (n *ConnectedNode) readMessages(stream io.ReadCloser) error {
 		case *meshtastic.FromRadio_ModuleConfig:
 		case *meshtastic.FromRadio_FileInfo:
 		case *meshtastic.FromRadio_QueueStatus:
+		case *meshtastic.FromRadio_LogRecord:
+		case *meshtastic.FromRadio_Rebooted:
+		case *meshtastic.FromRadio_XmodemPacket:
+		case *meshtastic.FromRadio_MqttClientProxyMessage:
+		case *meshtastic.FromRadio_ClientNotification:
+		case *meshtastic.FromRadio_DeviceuiConfig:
 			// Te pakiety ignorujemy świadomie.
 		default:
-			log.Println("Nieobsłużona wiadomość:" + packet.String())
+			if config.IsLogEnabled("protocol_packets") {
+				log.Println("Nieobsługiwany typ wiadomości FromRadio")
+			}
 		}
 	}
 }

@@ -6,9 +6,8 @@ import (
 	"sync/atomic"
 
 	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/timendus/meshbot/config"
 )
-
-const VERBOSE = false
 
 type acknowledgement struct {
 	id        int32
@@ -36,7 +35,7 @@ func newAcknowledgement(node *Node) *acknowledgement {
 
 func (a *acknowledgement) receive(node *Node, err meshtastic.Routing_Error) {
 	if !a.waiting.Load() {
-		if VERBOSE {
+		if config.IsLogEnabled("acknowledgements") {
 			log.Printf("Potwierdzenie %d do %s: odebrano pakiet, ale już nie oczekiwano\n", a.id, a.recipient.ColorString())
 		}
 		return
@@ -83,7 +82,7 @@ func (a *acknowledgement) close() {
 }
 
 func (a *acknowledgement) spam() {
-	if VERBOSE {
+	if config.IsLogEnabled("acknowledgements") {
 		log.Printf("Potwierdzenie %d do %s: %s\n", a.id, a.recipient.ColorString(), a.status)
 	}
 }
