@@ -400,7 +400,7 @@ func takeTraceroute(requestID uint32, fromID uint32) *pendingTraceroute {
 }
 
 func incoming(message m.IncomingMessage) {
-	if config.IsLogEnabled("incoming_messages") {
+	if config.IsLogEnabled(incomingLogCategory(message)) {
 		fmt.Println(message.String())
 	}
 
@@ -559,6 +559,22 @@ DM: /sciezka`)
 	// Zwykłe wiadomości oraz nieznane komendy nie są przez bota obsługiwane.
 	if message.IsPrivateMessage() && strings.HasPrefix(command, "/") {
 		message.ReplyReliably("🤖❓ ? /pomoc")
+	}
+}
+
+func incomingLogCategory(message m.IncomingMessage) string {
+	switch message.MessageType {
+	case m.MESSAGE_TYPE_TEXT_MESSAGE:
+		return "incoming_messages"
+	case m.MESSAGE_TYPE_TELEMETRY_DEVICE,
+		m.MESSAGE_TYPE_TELEMETRY_ENVIRONMENT,
+		m.MESSAGE_TYPE_TELEMETRY_HEALTH,
+		m.MESSAGE_TYPE_TELEMETRY_AIR_QUALITY,
+		m.MESSAGE_TYPE_TELEMETRY_POWER,
+		m.MESSAGE_TYPE_TELEMETRY_LOCAL_STATS:
+		return "incoming_telemetry"
+	default:
+		return "incoming_packets"
 	}
 }
 

@@ -73,6 +73,8 @@ Rodzaje logów można włączać i wyłączać w sekcji `logging` pliku `config.
 ```json
 "logging": {
   "incoming_messages": false,
+  "incoming_telemetry": false,
+  "incoming_packets": false,
   "outgoing_messages": false,
   "connections": true,
   "channels": false,
@@ -82,8 +84,10 @@ Rodzaje logów można włączać i wyłączać w sekcji `logging` pliku `config.
 }
 ```
 
-Domyślnie wyłączone są pełne wiadomości, surowe pakiety protokołu i szczegóły
-potwierdzeń. Błędy są zawsze zapisywane w logu.
+`incoming_messages` obejmuje tylko wiadomości tekstowe. Telemetria jest sterowana
+przez `incoming_telemetry`, a pozostałe pakiety mesh przez `incoming_packets`.
+Domyślnie wyłączone są pełne wiadomości, telemetria, pakiety mesh, surowe pakiety
+protokołu i szczegóły potwierdzeń. Błędy są zawsze zapisywane w logu.
 
 ## Kanały i wiadomości prywatne
 

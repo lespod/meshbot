@@ -26,6 +26,8 @@
     },
     "logging": {
         "incoming_messages": false,
+        "incoming_telemetry": false,
+        "incoming_packets": false,
         "outgoing_messages": false,
         "connections": true,
         "channels": false,
