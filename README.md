@@ -124,9 +124,10 @@ Po tym bot powinien się uruchomić.
 
 ## Licencja i prawa autorskie / License
 
-Ten projekt jest forkiem i przepisaną wersją projektu [Meshbot autorstwa Timendusa](https://github.com/Timendus/meshbot).
+Ten projekt jest forkiem i modyfikacją projektu [Meshbot autorstwa Timendusa](https://github.com/Timendus/meshbot).
 
 Copyright (C) 2026 Timendus
+
 Modifications and extensions Copyright (C) 2026 lespod
 
 Ten program jest wolnym oprogramowaniem: możesz go rozpowszechniać i/lub modyfikować pod warunkami Powszechnej Licencji Publicznej GNU (GNU General Public License) wydanej przez Fundację Wolnego Oprogramowania – według wersji 3 tej Licencji lub dowolnej późniejszej.
